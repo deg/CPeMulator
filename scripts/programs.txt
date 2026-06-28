@@ -89,6 +89,10 @@ MULISP
    (PLUS 1 2 3) is 3 (it adds the first two).  An unknown
    function just echoes back, and there is no (+ ...).  Starting
    cpemu --upper lets you type in lower case.  Ctrl-C exits.
+   Sample programs come with it - load one by name IN CAPITALS:
+     (RDS DOCTOR LIB)   Eliza, the "Doctor" psychotherapist.
+                        End your sentences with  .  ?  or  !
+     (RDS ANIMAL LIB)   guess-the-animal; it learns new ones.
 CC   (BDS C)
    A real C compiler.  Build a program in three steps:
      CC HELLO.C       compile  ->  HELLO.CRL
