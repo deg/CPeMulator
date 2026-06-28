@@ -29,6 +29,7 @@ mkdir -p "$EXTRA_DIR"
 # EXTRAS lists what counts as "not a program". -C makes patterns case-insensitive.
 EXTRAS="*.pdf *.jpg *.jpeg *.png *.gif *.bmp *.tif *.tiff \
         *.asm *.mac *.asc *.obj *.rel *.sym *.lst *.prn *.bak *.zip *.ark *.lbr \
+        *.lsp *.pas *.for *.pli *.inc \
         *.txt *.doc *.me *.1st"
 fetch() {
   url="$1"
