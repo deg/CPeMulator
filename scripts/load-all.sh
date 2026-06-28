@@ -9,11 +9,13 @@ set -e
 DIR="$(cd "$(dirname "$0")/.." && pwd)/software"
 [ -d "$DIR" ] || { echo "No software/ dir — run scripts/fetch-software.sh first."; exit 1; }
 
+# Load every program/data/overlay file in software/ (the emulator skips any
+# whose name isn't a valid CP/M 8.3 name).
 files=""
-for f in "$DIR"/*.COM "$DIR"/*.DAT; do
+for f in "$DIR"/*; do
   [ -f "$f" ] && files="$files $f"
 done
-[ -n "$files" ] || { echo "No .COM/.DAT files in $DIR — run scripts/fetch-software.sh first."; exit 1; }
+[ -n "$files" ] || { echo "No files in $DIR — run scripts/fetch-software.sh first."; exit 1; }
 
 # shellcheck disable=SC2086
 exec cargo run --release -p cpemu -- "$@" $files
