@@ -12,7 +12,25 @@ const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
 const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
 
 fn main() {
-    println!("cpemu — CP/M 2.2. Booting drive A:   (press Ctrl-\\ to quit)\n");
+    println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
+
+    // Any command-line arguments are host files to place on drive A: before
+    // booting, e.g. `cargo run -- STAT.COM ZORK1.COM`.
+    let mut disk = Disk::make_system_disk(CCP, BDOS);
+    for arg in std::env::args().skip(1) {
+        let name = std::path::Path::new(&arg)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        match std::fs::read(&arg) {
+            Ok(bytes) => match disk.add_file(&name, &bytes) {
+                Ok(()) => println!("  loaded {} onto A: ({} bytes)", name, bytes.len()),
+                Err(e) => eprintln!("  cannot add {arg}: {e:?}"),
+            },
+            Err(e) => eprintln!("  cannot read {arg}: {e}"),
+        }
+    }
+    println!("Booting drive A:\n");
 
     let console = match TerminalConsole::new() {
         Ok(c) => c,
@@ -22,7 +40,6 @@ fn main() {
         }
     };
 
-    let disk = Disk::make_system_disk(CCP, BDOS);
     let mut exec = cold_boot(MachineConfig::virtual_default(), disk, console);
 
     let exit = loop {

@@ -112,8 +112,13 @@ make check
 To boot CP/M interactively in your terminal:
 
 ```bash
-cargo run            # boots drive A: to an A> prompt; quit with Ctrl-\
+cargo run                       # boots an empty drive A: to an A> prompt
+cargo run -- STAT.COM GAME.COM  # places host files on A: first, then boots
+# quit with Ctrl-\
 ```
+
+Any files you pass are copied onto drive A: before boot, so `DIR` lists them and
+you can run a `.COM` by typing its name. (The disk is rebuilt fresh each run.)
 
 ## Repository layout
 
