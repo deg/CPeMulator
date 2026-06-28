@@ -80,8 +80,10 @@ TURBO
    You then get a menu (Edit, Compile, Run...).  The full-screen
    editor needs a good terminal; the menu and Compile/Run work.
 MULISP
-   muLISP-80, a tiny early Lisp (1980, The Soft Warehouse).  At
-   its  $  prompt type Lisp, e.g.  (CONS (QUOTE A) (QUOTE B)) .
+   muLISP-80 (1980, The Soft Warehouse): a Lisp squeezed onto a
+   64K CP/M micro - small by necessity, not by era (it shipped
+   to run the muMATH symbolic-algebra system).  Type Lisp at its
+   $  prompt, e.g.  (CONS (QUOTE A) (QUOTE B)) .
    Built-ins are CASE-SENSITIVE and UPPER-CASE - (PLUS 2 3) is 5
    but (plus 2 3) is undefined.  Arithmetic is TWO-argument, so
    (PLUS 1 2 3) is 3 (it adds the first two).  An unknown
