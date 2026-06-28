@@ -507,8 +507,11 @@ impl Cpu {
                     self.regs.pc = nn;
                     self.done(17, Stop::Normal)
                 } else {
-                    // CB/DD/ED/FD prefixes — implemented in cpemu-yd5.3.
-                    self.done(4, Stop::Illegal(opcode))
+                    match p {
+                        2 => self.exec_ed(bus), // ED-prefixed extended ops
+                        // DD (p==1) / FD (p==3) index prefixes — implemented next.
+                        _ => self.done(4, Stop::Illegal(opcode)),
+                    }
                 }
             }
             6 => {
@@ -636,11 +639,14 @@ mod tests {
     }
 
     #[test]
-    fn prefix_byte_still_illegal() {
-        let mut cpu = Cpu::new();
-        let mut bus = PlainBus::new();
-        bus.load(0x0000, &[0xED]);
-        assert_eq!(cpu.step(&mut bus).stop, Stop::Illegal(0xED));
+    fn index_prefixes_still_illegal() {
+        // CB and ED are implemented; the DD/FD index prefixes are not yet.
+        for prefix in [0xDD, 0xFD] {
+            let mut cpu = Cpu::new();
+            let mut bus = PlainBus::new();
+            bus.load(0x0000, &[prefix]);
+            assert_eq!(cpu.step(&mut bus).stop, Stop::Illegal(prefix));
+        }
     }
 
     #[test]

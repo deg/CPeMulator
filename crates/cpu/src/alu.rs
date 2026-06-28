@@ -133,6 +133,42 @@ impl Cpu {
         res
     }
 
+    /// `ADC HL,rr` — 16-bit add with carry. Unlike `ADD HL,rr`, this sets the
+    /// full flag set: S/Z from the 16-bit result, H from carry out of bit 11,
+    /// P/V from signed 16-bit overflow, N cleared, C from carry out of bit 15.
+    pub(crate) fn adc16(&mut self, a: u16, b: u16) -> u16 {
+        let c = u32::from(self.regs.flag(flag::C));
+        let wide = u32::from(a) + u32::from(b) + c;
+        let res = wide as u16;
+        let half = (u32::from(a & 0x0fff) + u32::from(b & 0x0fff) + c) & 0x1000 != 0;
+        let overflow = ((a ^ b ^ 0x8000) & (a ^ res) & 0x8000) != 0;
+        self.regs.set_flag(flag::S, res & 0x8000 != 0);
+        self.regs.set_flag(flag::Z, res == 0);
+        self.regs.set_flag(flag::H, half);
+        self.regs.set_flag(flag::PV, overflow);
+        self.regs.set_flag(flag::N, false);
+        self.regs.set_flag(flag::C, wide > 0xffff);
+        self.set_yx_from((res >> 8) as u8);
+        res
+    }
+
+    /// `SBC HL,rr` — 16-bit subtract with carry, setting the full flag set.
+    pub(crate) fn sbc16(&mut self, a: u16, b: u16) -> u16 {
+        let c = i32::from(self.regs.flag(flag::C));
+        let wide = i32::from(a) - i32::from(b) - c;
+        let res = wide as u16;
+        let half = (i32::from(a & 0x0fff) - i32::from(b & 0x0fff) - c) & 0x1000 != 0;
+        let overflow = ((a ^ b) & (a ^ res) & 0x8000) != 0;
+        self.regs.set_flag(flag::S, res & 0x8000 != 0);
+        self.regs.set_flag(flag::Z, res == 0);
+        self.regs.set_flag(flag::H, half);
+        self.regs.set_flag(flag::PV, overflow);
+        self.regs.set_flag(flag::N, true);
+        self.regs.set_flag(flag::C, wide < 0);
+        self.set_yx_from((res >> 8) as u8);
+        res
+    }
+
     /// `RLCA` — rotate A left circular.
     pub(crate) fn rlca(&mut self) {
         let a = self.regs.a;
