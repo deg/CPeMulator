@@ -368,6 +368,52 @@ mod tests {
         assert_eq!(names, vec!["A.COM", "B.COM"]);
     }
 
+    /// Reconstruct a file from its directory entries the way BDOS does, to check
+    /// the on-disk layout (especially across extents).
+    fn reconstruct(disk: &Disk, name: &[u8; 8], ext: &[u8; 3]) -> Vec<u8> {
+        let mut entries: Vec<_> = (0..DIR_ENTRIES)
+            .map(|i| disk.dir_entry(i))
+            .filter(|e| e[0] != EMPTY && &e[1..9] == name && &e[9..12] == ext)
+            .collect();
+        entries.sort_by_key(|e| e[12]); // by extent number
+        let mut out = Vec::new();
+        for e in &entries {
+            let rc = e[15] as usize;
+            for rec in 0..rc {
+                let block = e[16 + rec / SECTORS_PER_BLOCK] as usize;
+                let ds = block * SECTORS_PER_BLOCK + rec % SECTORS_PER_BLOCK;
+                let (t, s) = Disk::data_location(ds);
+                out.extend_from_slice(disk.read_sector(t, s));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn multi_extent_file_round_trips() {
+        // 20000 bytes spans two directory extents (each holds 16 KB).
+        let data: Vec<u8> = (0..20000u32).map(|i| (i % 251) as u8).collect();
+        let mut d = Disk::blank();
+        d.add_file("BIG.DAT", &data).unwrap();
+
+        // Two extents, listed once.
+        assert_eq!(d.list_files(), vec!["BIG.DAT"]);
+        let extents = (0..DIR_ENTRIES)
+            .map(|i| d.dir_entry(i))
+            .filter(|e| e[0] != EMPTY)
+            .count();
+        assert_eq!(extents, 2, "20000 bytes should use 2 directory extents");
+
+        let recovered = reconstruct(&d, b"BIG     ", b"DAT");
+        // Recovered is padded up to a record boundary; the prefix must match.
+        assert!(recovered.len() >= data.len());
+        assert_eq!(
+            &recovered[..data.len()],
+            &data[..],
+            "data mismatch across extents"
+        );
+    }
+
     #[test]
     fn bad_names_are_rejected() {
         let mut d = Disk::blank();

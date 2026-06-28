@@ -12,3 +12,6 @@ third-party/cpm22/*.lst
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Fetched CP/M software (run scripts/fetch-software.sh)
+/software/
