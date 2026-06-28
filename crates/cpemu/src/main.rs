@@ -7,10 +7,11 @@
 use cpemu::bios::{Console, cold_boot};
 use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
-use cpemu::disk::{Disk, DiskFormat};
+use cpemu::disk::{self, Disk, DiskFormat};
 use cpemu::executor::RunExit;
 use cpemu::terminal::TerminalMode;
 use cpemu::throttle::Throttle;
+use std::path::Path;
 
 /// The genuine CP/M 2.2 CCP and BDOS, assembled at our memory-map origins.
 const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
@@ -39,6 +40,9 @@ OPTIONS:
                 erases cleanly.
     --floppy    Use a small 8\" floppy (~241 KB) instead of the default 8 MB
                 disk.
+    --disk=PATH Mount a .dsk disk image as drive A and save changes back to it
+                on exit. If PATH does not exist, a fresh disk is created there.
+                An existing image's size selects its format (--floppy ignored).
     --help, -h  Show this help and exit.
 
 KEYS (while running):
@@ -74,6 +78,7 @@ fn main() {
     let mut upper = false;
     let mut map_delete = true;
     let mut format = DiskFormat::hard_8mb();
+    let mut disk_path: Option<String> = None;
     let mut files = Vec::new();
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
@@ -86,6 +91,7 @@ fn main() {
             "--upper" => upper = true,
             "--no-map-delete" => map_delete = false,
             "--floppy" => format = DiskFormat::floppy_8inch(),
+            _ if arg.starts_with("--disk=") => disk_path = Some(arg[7..].to_string()),
             _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
                 Ok(n) if n > 0.0 => mhz = n,
                 _ => eprintln!("  ignoring bad --mhz value: {}", &arg[6..]),
@@ -100,7 +106,21 @@ fn main() {
 
     println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
 
-    let mut disk = Disk::make_system_disk_with(format, CCP, BDOS);
+    // Mount an existing image (its size picks the format), or make a fresh
+    // bootable disk — written back to --disk on exit if one was named.
+    let mut disk = match disk_path.as_deref() {
+        Some(p) if Path::new(p).exists() => match Disk::load_image(Path::new(p)) {
+            Ok(d) => {
+                println!("  mounted {p} ({} bytes)", d.image().len());
+                d
+            }
+            Err(e) => {
+                eprintln!("cpemu: cannot mount {p}: {e}");
+                std::process::exit(1);
+            }
+        },
+        _ => Disk::make_system_disk_with(format, CCP, BDOS),
+    };
     for path in &files {
         let name = std::path::Path::new(path)
             .file_name()
@@ -160,8 +180,21 @@ fn main() {
         }
     };
 
+    // Snapshot the (possibly modified) disk before dropping the executor, so the
+    // image can be written back in cooked-terminal mode after the drop. The
+    // illegal-opcode path above exits without reaching here, so a crashed run
+    // never overwrites the image.
+    let image = disk_path
+        .as_deref()
+        .map(|_| exec.bios.disk().image().to_vec());
     drop(exec); // restores cooked terminal mode
     println!("\r\ncpemu: {exit}.");
+    if let (Some(p), Some(bytes)) = (disk_path.as_deref(), image) {
+        match disk::write_image(Path::new(p), &bytes) {
+            Ok(()) => println!("cpemu: saved disk image to {p}"),
+            Err(e) => eprintln!("cpemu: could not save {p}: {e}"),
+        }
+    }
 }
 
 #[cfg(test)]
