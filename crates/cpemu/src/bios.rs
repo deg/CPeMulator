@@ -81,9 +81,13 @@ pub struct CpmBios<C: Console> {
     config: MachineConfig,
     /// The host console.
     pub console: C,
-    /// Drive A's disk image.
-    disk: Disk,
-    // Current disk I/O state, set by SETTRK/SETSEC/SETDMA.
+    /// Drives A..P. Slot 0 (A) is always mounted; the rest are optional. Each
+    /// disk carries its own format, so drives may differ in size.
+    disks: [Option<Disk>; 16],
+    /// Address of each mounted drive's Disk Parameter Header in guest RAM (0 for
+    /// an unmounted drive). Filled in by [`install`](CpmBios::install).
+    dph: [u16; 16],
+    // Current disk I/O state, set by SELDSK/SETTRK/SETSEC/SETDMA.
     track: usize,
     sector: usize,
     dma: u16,
@@ -94,12 +98,16 @@ pub struct CpmBios<C: Console> {
 }
 
 impl<C: Console> CpmBios<C> {
-    /// Create a BIOS for the given machine, console, and (drive A) disk.
+    /// Create a BIOS with `disk` mounted as drive A. Mount more drives with
+    /// [`mount`](CpmBios::mount) before calling [`install`](CpmBios::install).
     pub fn new(config: MachineConfig, console: C, disk: Disk) -> Self {
+        let mut disks: [Option<Disk>; 16] = std::array::from_fn(|_| None);
+        disks[0] = Some(disk);
         Self {
             config,
             console,
-            disk,
+            disks,
+            dph: [0; 16],
             track: 0,
             sector: 0,
             dma: 0x0080,
@@ -108,20 +116,44 @@ impl<C: Console> CpmBios<C> {
         }
     }
 
-    /// The mounted drive-A disk, for inspection or saving back to an image.
-    pub fn disk(&self) -> &crate::disk::Disk {
-        &self.disk
+    /// Mount `disk` as `drive` (0 = A .. 15 = P), replacing any existing mount.
+    pub fn mount(&mut self, drive: u8, disk: Disk) {
+        self.disks[drive as usize] = Some(disk);
     }
 
-    /// Address of the Disk Parameter Header (just above the jump table).
-    fn dph_addr(&self) -> u16 {
-        self.config.bios_base.wrapping_add(0x0100)
+    /// The drive-A disk, for inspection or saving back to an image.
+    pub fn disk(&self) -> &Disk {
+        self.disks[0].as_ref().expect("drive A is always mounted")
     }
 
-    /// Write the static BIOS structures into guest memory: the jump table and
-    /// the disk parameter header/block (and its buffers). Call once, before
-    /// running.
-    pub fn install(&self, mem: &mut Memory) {
+    /// The disk mounted as `drive`, if any.
+    pub fn disk_at(&self, drive: u8) -> Option<&Disk> {
+        self.disks.get(drive as usize).and_then(|d| d.as_ref())
+    }
+
+    /// Bytes of BIOS work area (DPH/DPB/dir buffer/alloc & checksum vectors) the
+    /// currently mounted drives need.
+    pub fn work_area_bytes(&self) -> usize {
+        work_area_bytes(self.disks.iter().flatten())
+    }
+
+    /// Bytes available for the BIOS work area (from just above the jump table to
+    /// the top of memory).
+    pub fn work_area_capacity(&self) -> usize {
+        self.config.memory_size - (self.config.bios_base as usize + 0x0100)
+    }
+
+    /// Write the static BIOS structures into guest memory: the jump table and,
+    /// for each mounted drive, a Disk Parameter Header and Block plus the
+    /// allocation/checksum vectors BDOS keeps. Call once, before running.
+    ///
+    /// Panics if the mounted drives need more work area than there is room for
+    /// above the jump table; callers should check [`work_area_bytes`] against
+    /// [`work_area_capacity`] first.
+    ///
+    /// [`work_area_bytes`]: CpmBios::work_area_bytes
+    /// [`work_area_capacity`]: CpmBios::work_area_capacity
+    pub fn install(&mut self, mem: &mut Memory) {
         // The BIOS jump table. Each vector is `JP <its own address>`. We trap by
         // PC, so the bytes here are never executed when BDOS calls a vector —
         // but some programs (notably MBASIC) build their console I/O by reading
@@ -135,31 +167,58 @@ impl<C: Console> CpmBios<C> {
             mem.write16(addr + 1, addr);
         }
 
-        // The DPB and allocation-vector size come from the disk's own format,
-        // so the BIOS always advertises the geometry the disk was built with.
-        let dph = self.dph_addr();
-        let dpb = dph + 0x10;
-        let dirbuf = dph + 0x20; // 128 bytes -> dph+0xA0
-        let alv = dph + 0xA0;
-        let csv = alv + self.disk.format().alloc_vector_len() as u16;
+        // Lay out the per-drive structures with a simple bump allocator starting
+        // just above the jump table. The 128-byte directory buffer is shared by
+        // all drives (BDOS uses one drive at a time); each drive gets its own
+        // DPH, DPB, allocation vector, and (for removable media) checksum vector.
+        let base = self.config.bios_base as u32 + 0x0100;
+        let ceiling = self.config.memory_size as u32;
+        let mut ptr = base;
 
-        for (i, &b) in self.disk.format().dpb.iter().enumerate() {
-            mem.write(dpb + i as u16, b);
+        let dirbuf = ptr as u16;
+        ptr += 128;
+
+        for drive in 0..16usize {
+            self.dph[drive] = 0;
+            let Some(disk) = &self.disks[drive] else {
+                continue;
+            };
+            let fmt = *disk.format();
+            let alv_len = fmt.alloc_vector_len() as u32;
+            // CKS word in the DPB: bytes of checksum vector (0 for a fixed disk).
+            let cks = u16::from_le_bytes([fmt.dpb[11], fmt.dpb[12]]) as u32;
+
+            let dph = ptr as u16;
+            let dpb = (ptr + 16) as u16;
+            let alv = (ptr + 16 + 15) as u16;
+            let csv = (ptr + 16 + 15 + alv_len) as u16;
+            ptr += 16 + 15 + alv_len + cks;
+            assert!(
+                ptr <= ceiling,
+                "BIOS work area overflow mounting drive {drive}: needs {} bytes, have {}",
+                self.work_area_bytes(),
+                self.work_area_capacity()
+            );
+
+            for (i, &b) in fmt.dpb.iter().enumerate() {
+                mem.write(dpb + i as u16, b);
+            }
+            // Disk Parameter Header: XLT=0 (identity translation), 3 scratch
+            // words (left zero), then the pointers BDOS follows.
+            mem.write16(dph, 0x0000);
+            mem.write16(dph + 8, dirbuf);
+            mem.write16(dph + 10, dpb);
+            mem.write16(dph + 12, csv);
+            mem.write16(dph + 14, alv);
+            self.dph[drive] = dph;
         }
-        // Disk Parameter Header: XLT=0 (no skew), 3 scratch words, then the
-        // pointers BDOS follows.
-        mem.write16(dph, 0x0000); // XLT — identity translation
-        mem.write16(dph + 8, dirbuf);
-        mem.write16(dph + 10, dpb);
-        mem.write16(dph + 12, csv);
-        mem.write16(dph + 14, alv);
     }
 
-    /// Load the CCP+BDOS image off the disk's system tracks into memory at the
+    /// Load the CCP+BDOS image off drive A's system tracks into memory at the
     /// CCP base. The image is exactly the gap between the CCP base and the BIOS.
     fn load_system(&self, mem: &mut Memory) {
         let len = (self.config.bios_base - self.config.ccp_base) as usize;
-        mem.load(self.config.ccp_base, &self.disk.system_area()[..len]);
+        mem.load(self.config.ccp_base, &self.disk().system_area()[..len]);
     }
 
     /// Set up page zero: the warm-boot jump at 0x0000 and the BDOS-entry jump at
@@ -196,24 +255,49 @@ impl<C: Console> CpmBios<C> {
         }
     }
 
-    /// READ: transfer the current sector from disk into the DMA buffer.
+    /// READ: transfer the current sector of the selected drive into the DMA
+    /// buffer. Returns A=1 (error) if no disk is mounted there.
     fn disk_read(&mut self, cpu: &mut Cpu, mem: &mut Memory) -> TrapAction {
-        let sector = self.disk.read_sector(self.track, self.sector).to_vec();
-        mem.load(self.dma, &sector);
-        cpu.regs.a = 0; // success
+        match &self.disks[self.drive as usize] {
+            Some(disk) => {
+                let sector = disk.read_sector(self.track, self.sector).to_vec();
+                mem.load(self.dma, &sector);
+                cpu.regs.a = 0; // success
+            }
+            None => cpu.regs.a = 1, // no such drive
+        }
         TrapAction::Return
     }
 
-    /// WRITE: transfer the DMA buffer into the current sector on disk.
+    /// WRITE: transfer the DMA buffer into the current sector of the selected
+    /// drive. Returns A=1 (error) if no disk is mounted there.
     fn disk_write(&mut self, cpu: &mut Cpu, mem: &mut Memory) -> TrapAction {
         let mut buf = [0u8; SECTOR_SIZE];
         for (i, b) in buf.iter_mut().enumerate() {
             *b = mem.read(self.dma.wrapping_add(i as u16));
         }
-        self.disk.write_sector(self.track, self.sector, &buf);
-        cpu.regs.a = 0;
+        match &mut self.disks[self.drive as usize] {
+            Some(disk) => {
+                disk.write_sector(self.track, self.sector, &buf);
+                cpu.regs.a = 0;
+            }
+            None => cpu.regs.a = 1, // no such drive
+        }
         TrapAction::Return
     }
+}
+
+/// Bytes of BIOS work area a set of mounted disks needs: a shared 128-byte
+/// directory buffer plus, per drive, a DPH (16), DPB (15), allocation vector,
+/// and checksum vector (from the DPB's CKS field; 0 for fixed disks).
+pub fn work_area_bytes<'a>(disks: impl Iterator<Item = &'a Disk>) -> usize {
+    let mut n = 128; // shared directory buffer
+    for d in disks {
+        let fmt = d.format();
+        let cks = u16::from_le_bytes([fmt.dpb[11], fmt.dpb[12]]) as usize;
+        n += 16 + 15 + fmt.alloc_vector_len() + cks;
+    }
+    n
 }
 
 impl<C: Console> BiosTrap for CpmBios<C> {
@@ -244,11 +328,13 @@ impl<C: Console> BiosTrap for CpmBios<C> {
                 TrapAction::Return
             }
             9 => {
-                // SELDSK: C = drive. Only drive 0 (A:) exists; return its DPH,
-                // or HL=0 for any other drive.
-                if cpu.regs.c == 0 {
-                    self.drive = 0;
-                    cpu.regs.set_hl(self.dph_addr());
+                // SELDSK: C = drive (0=A). If a disk is mounted there, select it
+                // and return its DPH; otherwise HL=0, which BDOS reports as a
+                // select error.
+                let d = cpu.regs.c as usize;
+                if d < 16 && self.disks[d].is_some() {
+                    self.drive = d as u8;
+                    cpu.regs.set_hl(self.dph[d]);
                 } else {
                     cpu.regs.set_hl(0);
                 }
@@ -282,15 +368,21 @@ impl<C: Console> BiosTrap for CpmBios<C> {
     }
 }
 
-/// Cold-boot a CP/M system: build the machine, install the BIOS structures, and
-/// point the CPU at the BOOT vector so the first step loads and enters the CCP.
+/// Cold-boot a CP/M system with just drive A: build the machine, install the
+/// BIOS structures, and point the CPU at the BOOT vector so the first step loads
+/// and enters the CCP.
 pub fn cold_boot<C: Console>(
     config: MachineConfig,
     disk: Disk,
     console: C,
 ) -> Executor<CpmBios<C>> {
+    cold_boot_bios(config, CpmBios::new(config, console, disk))
+}
+
+/// Cold-boot an already-built BIOS, with whatever drives it has mounted. Use
+/// this when more than drive A is mounted (mount them, then boot).
+pub fn cold_boot_bios<C: Console>(config: MachineConfig, bios: CpmBios<C>) -> Executor<CpmBios<C>> {
     let machine = Machine::from_config(&config);
-    let bios = CpmBios::new(config, console, disk);
     let mut exec = Executor::new(machine, bios);
     exec.bios.install(&mut exec.machine.mem);
     exec.cpu.regs.pc = config.bios_base; // the BOOT vector
@@ -314,8 +406,12 @@ mod tests {
     /// Boot a specific disk with a scripted command line.
     fn boot_disk(disk: Disk, command: &str) -> String {
         let console = ScriptedConsole::with_input(command);
-        let mut exec = cold_boot(MachineConfig::virtual_default(), disk, console);
+        drive_exec(cold_boot(MachineConfig::virtual_default(), disk, console))
+    }
 
+    /// Run an executor until the guest waits for input that won't come (EOF) or a
+    /// step budget is spent, returning the captured console output.
+    fn drive_exec(mut exec: Executor<CpmBios<ScriptedConsole>>) -> String {
         let mut steps: u64 = 0;
         while !exec.bios.eof && steps < 50_000_000 {
             if let Some(exit) = exec.step() {
@@ -475,6 +571,48 @@ mod tests {
             }
         }
         assert!(steps >= 5000);
+    }
+
+    #[test]
+    fn dir_lists_files_on_a_second_drive() {
+        // Mount a data disk as drive B and prove CP/M can select it and read its
+        // directory — exercises SELDSK returning B's DPH and per-drive READ.
+        let cfg = MachineConfig::virtual_default();
+        let mut disk_b = Disk::blank();
+        disk_b.add_file("ONB.TXT", b"on drive b\r\n\x1a").unwrap();
+        let mut bios = CpmBios::new(
+            cfg,
+            ScriptedConsole::with_input("DIR B:\r"),
+            Disk::make_system_disk(CCP, BDOS),
+        );
+        bios.mount(1, disk_b);
+        let out = drive_exec(cold_boot_bios(cfg, bios));
+        assert!(
+            out.to_uppercase().contains("ONB"),
+            "DIR B: should list drive B's file:\n{out}"
+        );
+    }
+
+    #[test]
+    fn work_area_budget_fits_two_hard_disks_not_three() {
+        // The 8 MB allocation vector (510 bytes) is what bounds how many drives'
+        // BIOS structures fit above the jump table: two 8 MB disks fit, a third
+        // does not. Documents the limit the install() budget check enforces.
+        let cfg = MachineConfig::virtual_default();
+        let hard = || Disk::blank_with(crate::disk::DiskFormat::hard_8mb());
+        let mut bios = CpmBios::new(cfg, ScriptedConsole::default(), hard());
+        bios.mount(1, hard());
+        assert!(
+            bios.work_area_bytes() <= bios.work_area_capacity(),
+            "two 8MB drives should fit ({} > {})",
+            bios.work_area_bytes(),
+            bios.work_area_capacity()
+        );
+        bios.mount(2, hard());
+        assert!(
+            bios.work_area_bytes() > bios.work_area_capacity(),
+            "three 8MB drives should overflow the work area"
+        );
     }
 
     #[test]

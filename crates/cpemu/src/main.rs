@@ -4,7 +4,7 @@
 //! `cpemu` — CLI entry point. Boots the genuine CP/M 2.2 on the virtual machine
 //! with the host terminal as the console.
 
-use cpemu::bios::{Console, cold_boot};
+use cpemu::bios::{Console, CpmBios, cold_boot_bios, work_area_bytes};
 use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
 use cpemu::disk::{self, Disk, DiskFormat};
@@ -40,9 +40,12 @@ OPTIONS:
                 erases cleanly.
     --floppy    Use a small 8\" floppy (~241 KB) instead of the default 8 MB
                 disk.
-    --disk=PATH Mount a .dsk disk image as drive A and save changes back to it
-                on exit. If PATH does not exist, a fresh disk is created there.
-                An existing image's size selects its format (--floppy ignored).
+    --disk=[X:]PATH
+                Mount a .dsk image as drive X (A..P; default A) and save changes
+                back to it on exit. Repeatable, e.g. --disk=game.dsk
+                --disk=B:work.dsk. If PATH does not exist a fresh disk is created
+                (drive A bootable, others blank). An existing image's size picks
+                its format; up to two 8 MB disks (or more smaller ones) fit.
     --help, -h  Show this help and exit.
 
 KEYS (while running):
@@ -54,6 +57,24 @@ SCRIPTS:
     scripts/load-all.sh         Boot with that whole library on drive A:.
 
 Inside CP/M, type PROGRAMS.TXT (TYPE PROGRAMS.TXT) for a guide to what's loaded.";
+
+/// Parse a `--disk` value: an optional `X:` drive-letter prefix (A..P) followed
+/// by a path. No prefix means drive A. `--disk=B:work.dsk` -> (1, "work.dsk").
+fn parse_disk_spec(val: &str) -> (u8, String) {
+    let b = val.as_bytes();
+    if b.len() > 2 && b[1] == b':' {
+        let c = b[0].to_ascii_uppercase();
+        if (b'A'..=b'P').contains(&c) {
+            return (c - b'A', val[2..].to_string());
+        }
+    }
+    (0, val.to_string())
+}
+
+/// Drive number to its CP/M letter (0 -> 'A').
+fn drive_letter(drive: u8) -> char {
+    (b'A' + drive) as char
+}
 
 /// CP/M marks the end of a text file with `^Z` (0x1A). Tools that read to that
 /// marker treat a raw host file's trailing zero-padding as garbage — most sharply
@@ -78,7 +99,7 @@ fn main() {
     let mut upper = false;
     let mut map_delete = true;
     let mut format = DiskFormat::hard_8mb();
-    let mut disk_path: Option<String> = None;
+    let mut disk_mounts: Vec<(u8, String)> = Vec::new();
     let mut files = Vec::new();
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
@@ -91,7 +112,7 @@ fn main() {
             "--upper" => upper = true,
             "--no-map-delete" => map_delete = false,
             "--floppy" => format = DiskFormat::floppy_8inch(),
-            _ if arg.starts_with("--disk=") => disk_path = Some(arg[7..].to_string()),
+            _ if arg.starts_with("--disk=") => disk_mounts.push(parse_disk_spec(&arg[7..])),
             _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
                 Ok(n) if n > 0.0 => mhz = n,
                 _ => eprintln!("  ignoring bad --mhz value: {}", &arg[6..]),
@@ -106,21 +127,38 @@ fn main() {
 
     println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
 
-    // Mount an existing image (its size picks the format), or make a fresh
-    // bootable disk — written back to --disk on exit if one was named.
-    let mut disk = match disk_path.as_deref() {
-        Some(p) if Path::new(p).exists() => match Disk::load_image(Path::new(p)) {
-            Ok(d) => {
-                println!("  mounted {p} ({} bytes)", d.image().len());
-                d
+    // Resolve each --disk mount: load an existing image (its size picks the
+    // format) or create a fresh disk (drive A bootable, other drives blank).
+    // Drive A defaults to a fresh bootable disk if not named.
+    let mut disk_a = Disk::make_system_disk_with(format, CCP, BDOS);
+    let mut extras: Vec<(u8, Disk)> = Vec::new();
+    for (drive, path) in &disk_mounts {
+        let exists = Path::new(path).exists();
+        let disk = if exists {
+            match Disk::load_image(Path::new(path)) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("cpemu: cannot mount {path}: {e}");
+                    std::process::exit(1);
+                }
             }
-            Err(e) => {
-                eprintln!("cpemu: cannot mount {p}: {e}");
-                std::process::exit(1);
-            }
-        },
-        _ => Disk::make_system_disk_with(format, CCP, BDOS),
-    };
+        } else if *drive == 0 {
+            Disk::make_system_disk_with(format, CCP, BDOS)
+        } else {
+            Disk::blank_with(format)
+        };
+        println!(
+            "  {} {}: {} {path}",
+            if exists { "mounted" } else { "created" },
+            drive_letter(*drive),
+            if exists { "<-" } else { "->" },
+        );
+        if *drive == 0 {
+            disk_a = disk;
+        } else {
+            extras.push((*drive, disk));
+        }
+    }
     for path in &files {
         let name = std::path::Path::new(path)
             .file_name()
@@ -129,7 +167,7 @@ fn main() {
         match std::fs::read(path) {
             Ok(bytes) => {
                 let bytes = terminate_if_submit(&name, bytes);
-                match disk.add_file(&name, &bytes) {
+                match disk_a.add_file(&name, &bytes) {
                     Ok(()) => println!("  loaded {} onto A: ({} bytes)", name, bytes.len()),
                     Err(e) => eprintln!("  cannot add {path}: {e:?}"),
                 }
@@ -147,6 +185,19 @@ fn main() {
         }
     );
 
+    // Check the mounted drives' BIOS structures fit above the jump table before
+    // touching the terminal, so the error prints in cooked mode.
+    let config = MachineConfig::virtual_default();
+    let needed = work_area_bytes(std::iter::once(&disk_a).chain(extras.iter().map(|(_, d)| d)));
+    let capacity = config.memory_size - (config.bios_base as usize + 0x0100);
+    if needed > capacity {
+        eprintln!(
+            "cpemu: the mounted drives need {needed} bytes of BIOS work area but only \
+             {capacity} are available — mount fewer or smaller disks."
+        );
+        std::process::exit(1);
+    }
+
     let console = match TerminalConsole::new(mode, upper, map_delete) {
         Ok(c) => c,
         Err(e) => {
@@ -155,7 +206,11 @@ fn main() {
         }
     };
 
-    let mut exec = cold_boot(MachineConfig::virtual_default(), disk, console);
+    let mut bios = CpmBios::new(config, console, disk_a);
+    for (drive, disk) in extras {
+        bios.mount(drive, disk);
+    }
+    let mut exec = cold_boot_bios(config, bios);
 
     let exit = loop {
         if exec.bios.console.wants_quit() {
@@ -180,26 +235,42 @@ fn main() {
         }
     };
 
-    // Snapshot the (possibly modified) disk before dropping the executor, so the
-    // image can be written back in cooked-terminal mode after the drop. The
+    // Snapshot each path-backed drive before dropping the executor, so the images
+    // can be written back in cooked-terminal mode after the drop. The
     // illegal-opcode path above exits without reaching here, so a crashed run
-    // never overwrites the image.
-    let image = disk_path
-        .as_deref()
-        .map(|_| exec.bios.disk().image().to_vec());
+    // never overwrites an image.
+    let saves: Vec<(String, Vec<u8>)> = disk_mounts
+        .iter()
+        .filter_map(|(drive, path)| {
+            exec.bios
+                .disk_at(*drive)
+                .map(|d| (path.clone(), d.image().to_vec()))
+        })
+        .collect();
     drop(exec); // restores cooked terminal mode
     println!("\r\ncpemu: {exit}.");
-    if let (Some(p), Some(bytes)) = (disk_path.as_deref(), image) {
-        match disk::write_image(Path::new(p), &bytes) {
-            Ok(()) => println!("cpemu: saved disk image to {p}"),
-            Err(e) => eprintln!("cpemu: could not save {p}: {e}"),
+    for (path, bytes) in saves {
+        match disk::write_image(Path::new(&path), &bytes) {
+            Ok(()) => println!("cpemu: saved disk image to {path}"),
+            Err(e) => eprintln!("cpemu: could not save {path}: {e}"),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::terminate_if_submit;
+    use super::{parse_disk_spec, terminate_if_submit};
+
+    #[test]
+    fn disk_spec_parses_drive_prefix() {
+        assert_eq!(parse_disk_spec("foo.dsk"), (0, "foo.dsk".to_string())); // no prefix -> A
+        assert_eq!(parse_disk_spec("A:foo.dsk"), (0, "foo.dsk".to_string()));
+        assert_eq!(parse_disk_spec("B:work.dsk"), (1, "work.dsk".to_string()));
+        assert_eq!(parse_disk_spec("p:last.dsk"), (15, "last.dsk".to_string())); // lowercase ok
+        // A path that merely contains a colon but no single-letter prefix is a path.
+        assert_eq!(parse_disk_spec("dir:name"), (0, "dir:name".to_string()));
+        assert_eq!(parse_disk_spec("Z:bad.dsk"), (0, "Z:bad.dsk".to_string())); // Z is past P
+    }
 
     #[test]
     fn submit_files_get_a_ctrl_z() {
