@@ -84,15 +84,16 @@ the OS layer. Here is the honest state of each piece.
 | Z80 CPU — validated vs. exercisers (zexdoc) | [x] **passes** (zexall: 1 group short) |
 | Virtual machine & memory          | [x] done, tested |
 | HLE BIOS & boot                   | [x] boots to `A>` |
-| Disk subsystem                    | [~] 8" disk read/write (images/dir tooling next) |
+| Disk subsystem                    | [x] 8"/8 MB read/write + `.dsk` image mount/save (multi-drive next) |
 | Console & terminal                | [x] interactive raw-TTY + ADM-3A emulation |
 | Debugger / monitor (the frontend) | [ ] not started  |
 | Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
 **`cargo run` boots an interactive CP/M session** in your terminal. The boot
 integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
-headless (booting and running `DIR`). Still to come: putting your own files on
-the disk, mounting real disk images, and a debugger/monitor.
+headless (booting and running `DIR`). You can load your own files (positional
+args) and mount a persistent `.dsk` image (`--disk`). Still to come: multiple
+mounted drives and a debugger/monitor.
 
 ## Running classic CP/M software
 
@@ -150,8 +151,15 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
 | `--raw` | Disable ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
+| `--disk=PATH` | Mount a `.dsk` image as drive A and **save changes back to it on exit** — so your in-CP/M work persists. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
 
 Flags are forwarded by `load-all.sh` too, e.g. `./scripts/load-all.sh --mhz=2`.
+
+With `--disk`, cpemu becomes a persistent machine: `cargo run -- --disk=mine.dsk`
+boots the image, and anything you create inside CP/M (edit a file with `ED`, copy
+with `PIP`, write a program) is written back to `mine.dsk` when you quit. The save
+is atomic (a temp file renamed over the image), and a crash leaves the old image
+intact.
 
 ### Keys
 
