@@ -18,3 +18,4 @@ pub mod executor;
 pub mod machine;
 pub mod memory;
 pub mod terminal;
+pub mod throttle;

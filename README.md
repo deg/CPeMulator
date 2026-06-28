@@ -114,8 +114,13 @@ To boot CP/M interactively in your terminal:
 ```bash
 cargo run                       # boots an empty drive A: to an A> prompt
 cargo run -- STAT.COM GAME.COM  # places host files on A: first, then boots
+cargo run -- --mhz=2 LADDER.COM LADDER.DAT   # run the Z80 at 2 MHz
 # quit with Ctrl-\
 ```
+
+The CPU is paced to a target clock (default **4 MHz**) so that games which time
+themselves with CPU delay loops run at a realistic speed. Tune it with `--mhz=N`
+(e.g. `--mhz=2` if a game still feels too fast) or run flat-out with `--fast`.
 
 Any files you pass are copied onto drive A: before boot, so `DIR` lists them and
 you can run a `.COM` by typing its name. (The disk is rebuilt fresh each run.)

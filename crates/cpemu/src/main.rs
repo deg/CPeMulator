@@ -7,6 +7,7 @@ use cpemu::console::TerminalConsole;
 use cpemu::disk::Disk;
 use cpemu::executor::RunExit;
 use cpemu::terminal::TerminalMode;
+use cpemu::throttle::Throttle;
 
 /// The genuine CP/M 2.2 CCP and BDOS, assembled at our memory-map origins.
 const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
@@ -15,13 +16,27 @@ const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
 fn main() {
     println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
 
-    // `--raw` disables terminal translation; other arguments are host files to
+    // Flags: `--raw` disables terminal translation, `--mhz=N` sets the CPU clock
+    // (default 4), `--fast` runs unthrottled. Other arguments are host files to
     // place on drive A: before booting, e.g. `cargo run -- STAT.COM ZORK1.COM`.
     let mut mode = TerminalMode::Adm3a;
+    let mut mhz = 4.0_f64;
+    let mut throttled = true;
     let mut disk = Disk::make_system_disk(CCP, BDOS);
     for arg in std::env::args().skip(1) {
         if arg == "--raw" {
             mode = TerminalMode::Raw;
+            continue;
+        }
+        if arg == "--fast" {
+            throttled = false;
+            continue;
+        }
+        if let Some(v) = arg.strip_prefix("--mhz=") {
+            match v.parse::<f64>() {
+                Ok(n) if n > 0.0 => mhz = n,
+                _ => eprintln!("  ignoring bad --mhz value: {v}"),
+            }
             continue;
         }
         let name = std::path::Path::new(&arg)
@@ -36,7 +51,15 @@ fn main() {
             Err(e) => eprintln!("  cannot read {arg}: {e}"),
         }
     }
-    println!("Booting drive A:\n");
+    let mut throttle = throttled.then(|| Throttle::new((mhz * 1_000_000.0) as u64));
+    println!(
+        "Booting drive A:  ({})\n",
+        if throttle.is_some() {
+            format!("{mhz} MHz")
+        } else {
+            "unthrottled".to_string()
+        }
+    );
 
     let console = match TerminalConsole::new(mode) {
         Ok(c) => c,
@@ -62,6 +85,9 @@ fn main() {
                 eprintln!("\r\ncpemu: illegal opcode {op:#04X}");
                 std::process::exit(1);
             }
+        }
+        if let Some(t) = &mut throttle {
+            t.sync(exec.cpu.cycles);
         }
     };
 
