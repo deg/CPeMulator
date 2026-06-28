@@ -14,6 +14,7 @@ mod alu;
 mod bus;
 mod cb;
 mod cpu;
+mod disasm;
 mod ed;
 mod index;
 mod interrupt;
@@ -21,6 +22,7 @@ mod registers;
 
 pub use bus::{Bus, PlainBus};
 pub use cpu::{Cpu, StepResult, Stop};
+pub use disasm::{Disassembly, disassemble};
 pub use registers::{Registers, flag};
 
 /// Crate version string, for banners and diagnostics.

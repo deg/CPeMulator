@@ -22,6 +22,8 @@ this document is about what is *inside* it.
 | `cb.rs` | The `CB`-prefixed instructions: rotates, shifts, and `BIT`/`RES`/`SET`. |
 | `ed.rs` | The `ED`-prefixed instructions: 16-bit ADC/SBC, block moves/compares/I-O, `IM`, `RRD`/`RLD`, etc. |
 | `index.rs` | The `DD`/`FD` prefixes: `IX`/`IY`-indexed instructions, including `DD CB`/`FD CB`. |
+| `interrupt.rs` | Interrupt *delivery*: maskable `IM 0/1/2`, `NMI`, and the `EI` shadow gate. |
+| `disasm.rs` | The disassembler (shared with the monitor): one instruction → assembly text + length. |
 
 ## The register model
 
@@ -275,8 +277,13 @@ maskable interrupt in modes 0/1/2, `Cpu::nmi` takes a non-maskable interrupt, an
 `Cpu::can_accept_interrupt` reports whether a maskable interrupt would be
 accepted (respecting `IFF1` and the one-instruction `EI` shadow). The CPU has no
 interrupt *source* of its own — the surrounding machine decides when to assert a
-line and calls these. Still to do: the **disassembler**. `Stop::Illegal` is now
-reachable only for genuinely undefined encodings.
+line and calls these. A **disassembler** (`disasm.rs`) decodes one instruction to
+its assembly text and length, mirroring the executor's `x/y/z` structure; the
+monitor will use it. `Stop::Illegal` is now reachable only for genuinely
+undefined encodings.
+
+With these in place the CPU epic is **functionally complete**: the only remaining
+item is the WZ/MEMPTR stretch below.
 
 The one known correctness gap is the **WZ/MEMPTR register**: `zexall` (the
 undocumented-behavior exerciser) passes every group except `BIT n,(HL)`, whose

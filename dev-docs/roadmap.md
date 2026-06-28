@@ -42,7 +42,7 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
   `LD I/R`, `RRD`/`RLD`), `DD`/`FD` (`IX`/`IY` indexed, incl. `DD CB`)
 - ✅ Interrupts — maskable IM 0/1/2 + NMI delivery, `IFF1`/`IFF2`, and the
   one-instruction `EI` shadow (the CPU mechanism; the machine drives it)
-- ⬜ Disassembler (shared with the monitor)
+- ✅ Disassembler (shared with the monitor)
 - ✅ Exerciser harness — **zexdoc passes** (every documented-instruction group,
   ~31s in release). `prelim` runs in CI; `zexall` is one group short (the
   `BIT n,(HL)` undocumented-flag case needs the WZ/MEMPTR register — a stretch
