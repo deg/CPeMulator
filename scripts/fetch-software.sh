@@ -51,13 +51,18 @@ fetch() {
 # --- operating system + utilities ---
 fetch "$base/os/STDCPM22.ZIP"       # STAT, PIP, ED, DUMP, SUBMIT, ASM, LOAD, DDT...
 
-# --- languages ---
-fetch "$base/lang/mbasic.zip"       # Microsoft MBASIC 5.29
+# --- languages & compilers ---
+fetch "$base/lang/mbasic.zip"       # Microsoft MBASIC 5.29 (interpreter)
 fetch "$base/lang/TP_301A.ZIP"      # Turbo Pascal 3.01a
+fetch "$base/lang/lisp80.zip"       # LISP/80 + muLISP (Software Warehouse) — CP/M Lisp
+fetch "$base/lang/MSFORTRAN343.ZIP" # Microsoft FORTRAN-80 v3.43 (F80 + L80)
+fetch "$base/lang/CB80.ZIP"         # CBASIC — DRI's CB-80 BASIC compiler
+# (BDS C is fetched separately below — it lives at bdsoft.com, not retroarchive.)
 
 # --- games ---
 fetch "$base/games/zork123_80.zip"  # Zork I, II, III (+ data files)
 fetch "$base/misc/LADDER.ZIP"       # Ladder
+fetch "$base/misc/CATCHUM.ZIP"      # Catchum — a Pac-Man clone
 fetch "$base/games/sargon.zip"      # Sargon chess
 fetch "$base/games/nemesis.zip"     # Nemesis (dungeon adventure)
 fetch "$base/games/manygame.zip"    # a collection of small games
@@ -67,6 +72,25 @@ fetch "$base/text/Ws4_mbee.zip"     # WordStar 4 (Microbee — ADM-3A-compatible
 fetch "$base/business/Suprcalc.zip" # SuperCalc spreadsheet
 fetch "$base/business/MULTPLAN.ZIP" # Microsoft Multiplan
 fetch "$base/dbase/dbaseii.zip"     # dBASE II database
+
+# BDS C — the classic public-domain CP/M C compiler. It's special-cased because
+# (a) it lives at the author's site (bdsoft.com), not retroarchive, and (b) the
+# archive bundles a Z80 variant, full library source, and docs. We load only the
+# canonical 8080 build (the bdsc160/ subdirectory), and within it skip the *.c /
+# *.csm library source — those aren't needed to compile programs (the runtime is
+# precompiled in the .CRL libraries). CC compiles and CLINK links straight to a
+# .COM with no separate assembler, so a few files give a complete C toolchain.
+# Everything outside bdsc160/ goes to extras/.
+bdsc="$ZIPS/bdsc-all.zip"
+printf '==> %-28s ' "bdsc-all.zip (BDS C)"
+if [ -s "$bdsc" ] || curl -fsSL --connect-timeout 15 --max-time 120 -o "$bdsc" "https://www.bdsoft.com/dist/bdsc-all.zip" 2>/dev/null; then
+  # shellcheck disable=SC2086
+  unzip -o -j -C -d "$DEST" "$bdsc" "bdsc160/*" -x $EXTRAS "*.c" "*.csm" >/dev/null 2>&1
+  unzip -o -j -C -d "$EXTRA_DIR" "$bdsc" -x "bdsc160/*" >/dev/null 2>&1
+  echo "ok"
+else
+  echo "SKIPPED (download failed/timed out)"
+fi
 
 # Second-pass trim: a few archives bundle, alongside the actual program,
 # terminal-definition overlays (SuperCalc's per-terminal patch files) and CP/M
