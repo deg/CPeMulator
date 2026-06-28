@@ -112,13 +112,28 @@ implement or change something:
 ## Validating the CPU
 
 The CPU's real correctness bar is the standard exerciser programs, run by the
-exerciser harness (task `cpemu-yd5.6`). Until that lands, the CPU is validated by:
+harness in `crates/cpu/tests/exercisers.rs`. It stands up just enough of a CP/M
+environment (a 64K RAM bus, a trapped `CALL 5` BDOS for console output, warm-boot
+completion detection) to run vintage `.COM` test programs against the CPU in
+isolation.
+
+- **`prelim`** — Frank Cringle's preliminary test. Small and fast; it runs as a
+  normal test in `make check` and CI.
+- **`zexdoc`** — the documented-instruction exerciser and the **v1 gate**. It
+  runs billions of T-states (~31s in release), so it is `#[ignore]`d. Run it with:
+  ```bash
+  cargo test -p cpemu-cpu --release --test exercisers -- --ignored --nocapture
+  ```
+  It currently **passes** every group.
+- **`zexall`** — the undocumented-behavior exerciser (stretch goal). Same command.
+  It passes every group except `BIT n,(HL)`, which needs the WZ/MEMPTR register.
+
+Below the exercisers, day-to-day development relies on fast, focused tests:
 
 - **Unit tests in `alu.rs`** for flag behavior, tested in isolation.
-- **Whole-program tests in `cpu.rs`** that load a short machine-code program into
-  a `PlainBus`, run it to `HALT`, and assert the resulting register/flag state.
+- **Whole-program tests** in each CPU module that load a short machine-code
+  program into a `PlainBus`, run it to `HALT`, and assert the resulting state.
 
 When adding instructions, add tests at both levels (see
 [cpu-core.md](cpu-core.md#how-to-extend-the-instruction-set)). The exercisers are
-the final gate, but fast, focused tests are what make day-to-day development
-sane.
+the final gate, but fast, focused tests are what make day-to-day development sane.

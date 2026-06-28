@@ -266,8 +266,17 @@ A practical recipe, following the existing structure:
 
 Implemented: the **entire instruction set** — the unprefixed ("8080 base") map
 plus all four prefix groups (`CB`, `ED`, `DD`/`FD`) — with Z80 flag semantics
-including the undocumented Y/X bits. Not yet implemented: **interrupt handling**
-(IM 0/1/2 dispatch and IRQ/NMI delivery; `IM`/`EI`/`DI` state is tracked but no
-interrupt is delivered yet), the **disassembler**, and validation against the
-**exercisers** (the real correctness gate). `Stop::Illegal` is now reachable only
-for genuinely undefined encodings. See [roadmap.md](roadmap.md) for the breakdown.
+including the undocumented Y/X bits. **The CPU passes the `zexdoc` exerciser**
+(every documented-instruction group), which is the v1 correctness gate; see
+[development.md](development.md#validating-the-cpu) for how to run it.
+
+Not yet implemented: **interrupt handling** (IM 0/1/2 dispatch and IRQ/NMI
+delivery; `IM`/`EI`/`DI` state is tracked but no interrupt is delivered yet) and
+the **disassembler**. `Stop::Illegal` is now reachable only for genuinely
+undefined encodings.
+
+The one known correctness gap is the **WZ/MEMPTR register**: `zexall` (the
+undocumented-behavior exerciser) passes every group except `BIT n,(HL)`, whose
+undocumented Y/X flags are sourced from WZ rather than the operand. Modelling WZ
+is the explicit stretch goal that would close the last `zexall` group. See
+[roadmap.md](roadmap.md) for the breakdown.

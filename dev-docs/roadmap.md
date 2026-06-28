@@ -42,8 +42,10 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
   `LD I/R`, `RRD`/`RLD`), `DD`/`FD` (`IX`/`IY` indexed, incl. `DD CB`)
 - ⬜ Interrupts — IM 0/1/2, `IFF` handling, IRQ/NMI delivery
 - ⬜ Disassembler (shared with the monitor)
-- ⬜ Exerciser harness — the real correctness gate (**zexdoc**); smoke suites.
-  Blocked until the instruction set and interrupts are in.
+- ✅ Exerciser harness — **zexdoc passes** (every documented-instruction group,
+  ~31s in release). `prelim` runs in CI; `zexall` is one group short (the
+  `BIT n,(HL)` undocumented-flag case needs the WZ/MEMPTR register — a stretch
+  goal, tracked separately).
 
 ### ⬜ Virtual machine & memory — `cpemu-g47`
 - 64 KB RAM and the memory bus

@@ -79,7 +79,7 @@ the OS layer. Here is the honest state of each piece.
 | Z80 CPU — Z80 extensions (CB/ED/DD/FD) | ✅ done, tested |
 | Z80 CPU — interrupts (IM 0/1/2)   | ⬜ not started  |
 | Z80 CPU — disassembler            | ⬜ not started  |
-| Z80 CPU — validated vs. exercisers (zexdoc) | ⬜ not started |
+| Z80 CPU — validated vs. exercisers (zexdoc) | ✅ **passes** (zexall: 1 group short) |
 | Virtual machine & memory          | ⬜ not started  |
 | HLE BIOS & boot                   | ⬜ not started  |
 | Disk subsystem                    | ⬜ not started  |
