@@ -1,7 +1,7 @@
 //! `cpemu` — CLI entry point. Boots the genuine CP/M 2.2 on the virtual machine
 //! with the host terminal as the console.
 
-use cpemu::bios::cold_boot;
+use cpemu::bios::{Console, cold_boot};
 use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
 use cpemu::disk::{Disk, DiskFormat};
@@ -73,6 +73,9 @@ fn main() {
     let mut exec = cold_boot(MachineConfig::virtual_default(), disk, console);
 
     let exit = loop {
+        if exec.bios.console.wants_quit() {
+            break "quit";
+        }
         if exec.bios.eof {
             break "input closed";
         }

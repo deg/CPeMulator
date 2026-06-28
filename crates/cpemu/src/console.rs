@@ -14,6 +14,8 @@ use crate::bios::Console;
 use crate::terminal::{Terminal, TerminalMode};
 use crossterm::terminal;
 use std::io::{self, Read, Write};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 
@@ -42,6 +44,7 @@ pub struct TerminalConsole {
     rx: Receiver<u8>,
     pending: Option<u8>,
     term: Terminal,
+    quit: Arc<AtomicBool>,
     _raw: RawGuard,
 }
 
@@ -52,6 +55,8 @@ impl TerminalConsole {
     pub fn new(mode: TerminalMode) -> io::Result<Self> {
         let raw = RawGuard::enable()?;
         let (tx, rx) = mpsc::channel();
+        let quit = Arc::new(AtomicBool::new(false));
+        let reader_quit = Arc::clone(&quit);
         thread::spawn(move || {
             let stdin = io::stdin();
             for byte in stdin.lock().bytes() {
@@ -64,12 +69,16 @@ impl TerminalConsole {
                     }
                 }
             }
-            // Dropping `tx` closes the channel, which CONIN reports as EOF.
+            // The quit key or a closed stream ends the loop: raise the quit flag
+            // (which the run loop polls every step) and drop `tx` so a blocked
+            // CONIN also unblocks.
+            reader_quit.store(true, Ordering::SeqCst);
         });
         Ok(Self {
             rx,
             pending: None,
             term: Terminal::new(mode),
+            quit,
             _raw: raw,
         })
     }
@@ -104,5 +113,9 @@ impl Console for TerminalConsole {
             let _ = out.write_all(&buf);
             let _ = out.flush();
         }
+    }
+
+    fn wants_quit(&self) -> bool {
+        self.quit.load(Ordering::SeqCst)
     }
 }

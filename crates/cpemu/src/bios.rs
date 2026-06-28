@@ -28,6 +28,13 @@ pub trait Console {
     fn status(&mut self) -> bool;
     /// Write one character to the console.
     fn write(&mut self, byte: u8);
+
+    /// Whether the user has asked to quit the emulator (e.g. the quit key). The
+    /// run loop checks this every step, so it works even when the running
+    /// program busy-polls `CONST` and never calls `CONIN`. Default: never.
+    fn wants_quit(&self) -> bool {
+        false
+    }
 }
 
 /// A scripted console for headless runs and tests: a queue of input bytes and a
@@ -406,6 +413,60 @@ mod tests {
             out.contains("HELLO"),
             "program did not run/print from disk:\n{out}"
         );
+    }
+
+    #[test]
+    fn quit_flag_stops_a_const_polling_program() {
+        // Regression: a program that busy-polls CONST and never calls CONIN must
+        // still be stoppable by the quit signal (Ctrl-\). Before the fix, the run
+        // loop only noticed quit via CONIN, so such a program hung the emulator.
+        use std::cell::Cell;
+        use std::rc::Rc;
+
+        struct QuitConsole {
+            quit: Rc<Cell<bool>>,
+        }
+        impl Console for QuitConsole {
+            fn read(&mut self) -> Option<u8> {
+                None
+            }
+            fn status(&mut self) -> bool {
+                false
+            }
+            fn write(&mut self, _: u8) {}
+            fn wants_quit(&self) -> bool {
+                self.quit.get()
+            }
+        }
+
+        let cfg = MachineConfig::virtual_default();
+        let quit = Rc::new(Cell::new(false));
+        let bios = CpmBios::new(cfg, QuitConsole { quit: quit.clone() }, Disk::blank());
+        let mut exec =
+            crate::executor::Executor::new(crate::machine::Machine::from_config(&cfg), bios);
+        exec.bios.install(&mut exec.machine.mem);
+
+        // CALL CONST ; JR -5  (poll the console status forever; never read).
+        let v = cfg.bios_vector(2);
+        exec.machine
+            .mem
+            .load(0x0100, &[0xCD, v as u8, (v >> 8) as u8, 0x18, 0xFB]);
+        exec.cpu.regs.pc = 0x0100;
+
+        // Run loop as main does: it can only stop via the quit flag.
+        let mut steps = 0u64;
+        loop {
+            if exec.bios.console.wants_quit() {
+                break;
+            }
+            assert!(steps < 1_000_000, "quit flag was not honored (would hang)");
+            exec.step();
+            steps += 1;
+            if steps == 5000 {
+                quit.set(true); // simulate pressing the quit key
+            }
+        }
+        assert!(steps >= 5000);
     }
 
     #[test]
