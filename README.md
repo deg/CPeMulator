@@ -10,13 +10,13 @@ virtual machine, then boots the **genuine** Digital Research CP/M 2.2 command
 processor (CCP) and kernel (BDOS) — the same binaries that ran on real hardware —
 rather than re-implementing the operating system in Rust.
 
-> **Status: early development, but it boots.** The Z80 CPU core is complete and
-> `zexdoc`-validated, and **the genuine CP/M 2.2 now boots to the `A>` prompt** on
-> the virtual machine — `DIR` reads the directory and a real disk image is served
-> through the HLE BIOS. So far this runs headless (driven by tests); an
-> interactive terminal front end is the next step. See
-> [Project status](#project-status) for exactly what works. If you are a
-> developer, start with [`dev-docs/`](dev-docs/README.md).
+> **Status: early development, but it boots — and you can type at it.** The Z80
+> CPU core is complete and `zexdoc`-validated, and **the genuine CP/M 2.2 boots to
+> an interactive `A>` prompt**: run `cargo run` and you get a live CP/M session in
+> your terminal (try `DIR`; quit with Ctrl-\\). A real disk image is served
+> through the HLE BIOS. Still missing: tools to put your own files/programs on the
+> disk, and a debugger. See [Project status](#project-status) for exactly what
+> works. If you are a developer, start with [`dev-docs/`](dev-docs/README.md).
 
 ---
 
@@ -84,13 +84,14 @@ the OS layer. Here is the honest state of each piece.
 | Virtual machine & memory          | [x] done, tested |
 | HLE BIOS & boot                   | [x] boots to `A>` |
 | Disk subsystem                    | [~] 8" disk read/write (images/dir tooling next) |
-| Console & terminal                | [~] headless console (interactive terminal next) |
+| Console & terminal                | [~] interactive raw-TTY (terminal-type emulation pending) |
 | Debugger / monitor (the frontend) | [ ] not started  |
-| Boot CP/M to the `A>` prompt      | [x] headless (`DIR` works) |
+| Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
-**The interactive terminal is not wired up yet**, so you drive CP/M through tests
-for now (the boot integration tests in `crates/cpemu/src/bios.rs` boot the real
-CCP/BDOS and run `DIR`). An interactive front end and a monitor come next.
+**`cargo run` boots an interactive CP/M session** in your terminal. The boot
+integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
+headless (booting and running `DIR`). Still to come: putting your own files on
+the disk, mounting real disk images, and a debugger/monitor.
 
 ## Building and testing
 
@@ -108,8 +109,11 @@ cargo test --workspace
 make check
 ```
 
-`cargo run` currently prints only a version banner; it is a placeholder until the
-emulator can boot.
+To boot CP/M interactively in your terminal:
+
+```bash
+cargo run            # boots drive A: to an A> prompt; quit with Ctrl-\
+```
 
 ## Repository layout
 

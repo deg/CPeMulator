@@ -73,7 +73,7 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 
 ### [~] Console & terminal — `cpemu-7m4`
 - [x] Console abstraction (`Console` trait; scripted console for headless/tests)
-- [ ] Interactive raw-TTY terminal front end (type at the live `A>`)
+- [x] Interactive raw-TTY terminal front end (`TerminalConsole`; `cargo run`)
 - [ ] Selectable ADM-3A/VT100 emulation
 
 ### [ ] Debugger / monitor — `cpemu-6o2`

@@ -16,3 +16,6 @@ workspace = true
 
 [dependencies]
 cpemu-cpu = { workspace = true }
+# Terminal control (raw mode) for the interactive console. Exact version per
+# the repo's no-ranges dependency policy.
+crossterm = "=0.29.0"

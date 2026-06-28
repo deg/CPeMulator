@@ -12,6 +12,7 @@
 
 pub mod bios;
 pub mod config;
+pub mod console;
 pub mod disk;
 pub mod executor;
 pub mod machine;
