@@ -34,19 +34,36 @@ ZORK1  ZORK2  ZORK3
    Infocom text adventures.  Type plain English: OPEN MAILBOX,
    READ LEAFLET, GO NORTH, TAKE LAMP.  SAVE and RESTORE work.
    QUIT to leave (it asks you to confirm).
+ENCHANTE
+   Enchanter - Infocom's fantasy adventure; you play a novice
+   magician who collects and casts spells.  Same plain-English
+   input as Zork, and SAVE / RESTORE / QUIT all work.
 ADVENTUR
    Colossal Cave Adventure.  Answer its opening question to
    start, then explore: GO NORTH, GET LAMP, ENTER, ...
 SARGON
    Chess.  Answer the setup questions with a CAPITAL Y or N.
    Enter moves as coordinates, e.g.  E2E4 .
+OTHELLO
+   Othello (Reversi) against the computer.  Answer its setup
+   questions with a CAPITAL Y or N, then play by naming the
+   square you want to take.
 LADDER
    Arcade climbing game.  Likely TOO FAST - restart --mhz=2.
    Keys: A up, Z down, comma left, period right, Space jump.
+PACMAN95
+   A Pac-Man-style dungeon chase: eat the coins and grab a
+   potion to zap the monsters hunting you.  Arcade speed - if
+   it runs too fast, restart cpemu with  --mhz=2 .
 STAR.BAS
    Star Trek.  Run:  MBASIC STAR.BAS
    Answer "list of commands?" with a CAPITAL Y or it silently
    skips the list.  Commands are numbers (e.g. 4 = fire torpedo).
+
+MORE BASIC GAMES
+   Also here, each run with  MBASIC NAME.BAS :  BIGTREK,
+   MONOPLY, MONSTER, STARWARS, TVIGAMMO (backgammon), ZILCH
+   (a dice game), WORDPUZL.  Most want CAPITAL-letter answers.
 
 ---------------- LANGUAGES -------------------------------------
 
@@ -70,12 +87,22 @@ MP
    ADM-3A so it should display.  Commands are the menu along the
    bottom - Quit from there.
 SC
-   SuperCalc spreadsheet.  Needs INSTALL run first to set up a
-   terminal; it may not start otherwise.
+   SuperCalc spreadsheet.  Not pre-configured for a terminal in
+   this build, so it may not display correctly yet.
 WS
    WordStar word processor.  Full-screen; run WINSTALL once to
    set it up for a terminal.  Commands are Ctrl-key combos;
    ^KX saves and exits, ^KQ quits without saving.
+
+---------------- TEXT TOOLS ------------------------------------
+SPELL  FILE      Check spelling (Oasis "The Word Plus").  Lists
+                 every word not in its dictionary, e.g.
+                 SPELL LETTER.TXT .
+WORDFREQ  FILE   Count how often each word appears.
+WC  FILE         Count lines, words and characters.
+   The Word Plus also adds FIND, HUNT, LOOKUP, REVIEW, ANAGRAM,
+   DICTSORT and HYPHEN - run one with no filename to see how it
+   wants to be called.
 
 ---------------- BUILT-IN COMMANDS -----------------------------
 These are part of CP/M itself, always available - they are NOT
@@ -109,6 +136,13 @@ ASM  FILE        8080 assembler (expects FILE.ASM).
 LOAD  FILE       Turn FILE.HEX into a runnable FILE.COM.
 DUMP  FILE       Hex-dump a file.
 SUBMIT  FILE     Run a batch of commands from FILE.SUB.
+
+---------------- MORE ON THE DISK ------------------------------
+This guide covers the highlights.  DIR lists EVERYTHING - and
+there is more to find: extra games (try NEMESIS), small file
+tools (XDIR, D, LIST, USQ to un-squeeze), and the rest of the
+Word Plus.  Most tools print a usage line if you run them with
+no filename, so poke around.
 
 ================================================================
   Built with cpemu, a from-scratch Z80 CP/M emulator in Rust.
