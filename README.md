@@ -10,10 +10,11 @@ virtual machine, then boots the **genuine** Digital Research CP/M 2.2 command
 processor (CCP) and kernel (BDOS) — the same binaries that ran on real hardware —
 rather than re-implementing the operating system in Rust.
 
-> **Status: early development.** The CPU core is taking shape — the full Z80
-> instruction set (8080 base plus all CB/ED/DD/FD extensions) runs today;
-> interrupts, a disassembler, and exerciser validation are next. There is **no
-> runnable emulator yet** — you cannot boot CP/M or run software at this stage.
+> **Status: early development.** The **Z80 CPU core is complete and validated** —
+> the full instruction set (8080 base plus all CB/ED/DD/FD extensions),
+> interrupts, and a disassembler, all passing the `zexdoc` exerciser. Next comes
+> the virtual machine and the path to booting CP/M. There is **no runnable
+> emulator yet** — you cannot boot CP/M or run software at this stage.
 > See [Project status](#project-status) for exactly what works. If you are a
 > developer, start with [`dev-docs/`](dev-docs/README.md).
 
@@ -77,8 +78,8 @@ the OS layer. Here is the honest state of each piece.
 |-----------------------------------|----------------|
 | Z80 CPU — 8080 base instructions  | ✅ done, tested |
 | Z80 CPU — Z80 extensions (CB/ED/DD/FD) | ✅ done, tested |
-| Z80 CPU — interrupts (IM 0/1/2)   | ⬜ not started  |
-| Z80 CPU — disassembler            | ⬜ not started  |
+| Z80 CPU — interrupts (IM 0/1/2)   | ✅ done, tested |
+| Z80 CPU — disassembler            | ✅ done, tested |
 | Z80 CPU — validated vs. exercisers (zexdoc) | ✅ **passes** (zexall: 1 group short) |
 | Virtual machine & memory          | ⬜ not started  |
 | HLE BIOS & boot                   | ⬜ not started  |
