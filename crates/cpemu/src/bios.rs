@@ -278,10 +278,13 @@ mod tests {
     /// Boot the genuine CP/M with a scripted command line and run until the
     /// guest asks for input that will not come (EOF) or a step budget is spent.
     fn boot_and_run(command: &str) -> String {
-        let config = MachineConfig::virtual_default();
-        let disk = Disk::make_system_disk(CCP, BDOS);
+        boot_disk(Disk::make_system_disk(CCP, BDOS), command)
+    }
+
+    /// Boot a specific disk with a scripted command line.
+    fn boot_disk(disk: Disk, command: &str) -> String {
         let console = ScriptedConsole::with_input(command);
-        let mut exec = cold_boot(config, disk, console);
+        let mut exec = cold_boot(MachineConfig::virtual_default(), disk, console);
 
         let mut steps: u64 = 0;
         while !exec.bios.eof && steps < 50_000_000 {
@@ -315,6 +318,41 @@ mod tests {
         assert!(
             out.to_uppercase().contains("NO FILE"),
             "DIR on an empty disk should say NO FILE, got:\n{out}"
+        );
+    }
+
+    /// A tiny CP/M `.COM`: print "HELLO" via BDOS function 9, then return to the
+    /// CCP. Loaded at 0x0100; the string is at 0x0109.
+    const HELLO_COM: &[u8] = &[
+        0x11, 0x09, 0x01, // LD DE,0x0109
+        0x0E, 0x09, // LD C,9 (BDOS print string)
+        0xCD, 0x05, 0x00, // CALL 5 (BDOS)
+        0xC9, // RET (back to CCP)
+        b'H', b'E', b'L', b'L', b'O', 0x0D, 0x0A, b'$',
+    ];
+
+    #[test]
+    fn dir_lists_an_added_file() {
+        let mut disk = Disk::make_system_disk(CCP, BDOS);
+        disk.add_file("HELLO.COM", HELLO_COM).unwrap();
+        let out = boot_disk(disk, "DIR\r");
+        assert!(
+            out.to_uppercase().contains("HELLO"),
+            "DIR should list the added file:\n{out}"
+        );
+    }
+
+    #[test]
+    fn runs_a_program_loaded_from_disk() {
+        // The full loop: host places a .COM, CP/M loads it off disk into the TPA
+        // and runs it. Proves the directory, block allocation, BDOS file load,
+        // and program execution all line up.
+        let mut disk = Disk::make_system_disk(CCP, BDOS);
+        disk.add_file("HELLO.COM", HELLO_COM).unwrap();
+        let out = boot_disk(disk, "HELLO\r");
+        assert!(
+            out.contains("HELLO"),
+            "program did not run/print from disk:\n{out}"
         );
     }
 }
