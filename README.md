@@ -84,16 +84,17 @@ the OS layer. Here is the honest state of each piece.
 | Z80 CPU — validated vs. exercisers (zexdoc) | [x] **passes** (zexall: 1 group short) |
 | Virtual machine & memory          | [x] done, tested |
 | HLE BIOS & boot                   | [x] boots to `A>` |
-| Disk subsystem                    | [x] 8"/8 MB read/write + `.dsk` image mount/save (multi-drive next) |
+| Disk subsystem                    | [x] 8"/8 MB read/write, `.dsk` mount/save, multiple drives (A..P) |
 | Console & terminal                | [x] interactive raw-TTY + ADM-3A emulation |
-| Debugger / monitor (the frontend) | [ ] not started  |
+| Debugger / monitor                | [~] execution core (breakpoints/step/continue); inspect/disasm/UI next |
 | Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
 **`cargo run` boots an interactive CP/M session** in your terminal. The boot
 integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
 headless (booting and running `DIR`). You can load your own files (positional
-args) and mount a persistent `.dsk` image (`--disk`). Still to come: multiple
-mounted drives and a debugger/monitor.
+args) and mount persistent `.dsk` images on several drives (`--disk`). The
+debugger's execution core (breakpoints, single-step, continue) is in place; its
+interactive frontend (register/memory inspect, disassembly, tracing) is next.
 
 ## Running classic CP/M software
 
@@ -151,15 +152,17 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
 | `--raw` | Disable ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
-| `--disk=PATH` | Mount a `.dsk` image as drive A and **save changes back to it on exit** — so your in-CP/M work persists. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
+| `--disk=[X:]PATH` | Mount a `.dsk` image as drive `X` (A..P; default A) and **save changes back to it on exit** — so your in-CP/M work persists. Repeatable for several drives. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
 
 Flags are forwarded by `load-all.sh` too, e.g. `./scripts/load-all.sh --mhz=2`.
 
-With `--disk`, cpemu becomes a persistent machine: `cargo run -- --disk=mine.dsk`
-boots the image, and anything you create inside CP/M (edit a file with `ED`, copy
-with `PIP`, write a program) is written back to `mine.dsk` when you quit. The save
-is atomic (a temp file renamed over the image), and a crash leaves the old image
-intact.
+With `--disk`, cpemu becomes a persistent, multi-drive machine:
+`cargo run -- --disk=mine.dsk --disk=B:work.dsk` boots `mine.dsk` as A and
+`work.dsk` as B, and anything you create inside CP/M (edit a file with `ED`, copy
+across drives with `PIP B:=A:FILE`, write a program) is written back to the right
+image when you quit. Saves are atomic (a temp file renamed over the image), so a
+crash leaves the old image intact. Up to two 8 MB disks (or more smaller ones)
+fit the BIOS work area.
 
 ### Keys
 
