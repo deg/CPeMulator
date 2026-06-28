@@ -12,9 +12,24 @@ ZIPS="$DEST/_zips"
 mkdir -p "$ZIPS"
 base="http://www.retroarchive.org/cpm"
 
-# Extract every file flat into software/ (apps like WordStar/dBASE/Multiplan need
-# their full set of overlays, message files, and terminal-config files alongside
-# the .COM; doc files are harmless extra). Skip only bulky manuals.
+EXTRA_DIR="$DEST/extras"
+
+# Start from a clean set of extracted files (keep the cached zips) so re-fetching
+# doesn't leave stale files around.
+find "$DEST" -maxdepth 1 -type f -delete 2>/dev/null || true
+rm -rf "$EXTRA_DIR"
+mkdir -p "$EXTRA_DIR"
+
+# We split each zip into two places:
+#   software/         programs + their support files (loaded onto the CP/M disk)
+#   software/extras/  everything else — scanned manuals (images/PDFs), source,
+#                     and build artifacts (kept so they're discoverable, but NOT
+#                     loaded; otherwise a few zips full of manual scans would
+#                     fill the whole 8 MB disk).
+# EXTRAS lists what counts as "not a program". -C makes patterns case-insensitive.
+EXTRAS="*.pdf *.jpg *.jpeg *.png *.gif *.bmp *.tif *.tiff \
+        *.asm *.mac *.asc *.obj *.rel *.sym *.lst *.prn *.bak *.zip *.ark *.lbr \
+        *.txt *.doc *.me *.1st"
 fetch() {
   url="$1"
   zip="$ZIPS/$(basename "$url")"
@@ -22,7 +37,10 @@ fetch() {
   # Reuse a previously-downloaded zip (re-running is fast and avoids the flaky
   # archive); otherwise download it.
   if [ -s "$zip" ] || curl -fsS --connect-timeout 10 --max-time 90 -o "$zip" "$url" 2>/dev/null; then
-    unzip -o -j -C -d "$DEST" "$zip" -x '*.pdf' '*.PDF' >/dev/null 2>&1
+    # shellcheck disable=SC2086
+    unzip -o -j -C -d "$DEST" "$zip" -x $EXTRAS >/dev/null 2>&1       # programs
+    # shellcheck disable=SC2086
+    unzip -o -j -C -d "$EXTRA_DIR" "$zip" $EXTRAS >/dev/null 2>&1     # the rest
     echo "ok"
   else
     echo "SKIPPED (download failed/timed out)"
@@ -58,8 +76,11 @@ if [ -f "$guide" ]; then
   printf '\032' >> "$DEST/PROGRAMS.TXT"   # ^Z end-of-text marker for CP/M
 fi
 
+prog_kb=$(ls -l "$DEST" | awk 'NR>1 && $1 !~ /^d/ {s+=$5} END {print int(s/1024)}')
+extra_n=$(find "$EXTRA_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
 echo
-echo "Programs in $DEST:"
-ls -1 "$DEST" | grep -viE '^_zips$' | sort | column 2>/dev/null || ls -1 "$DEST" | grep -viE '^_zips$' | sort
+echo "Programs in $DEST  (~${prog_kb} KB, loaded onto the CP/M disk):"
+ls -1 "$DEST" | grep -viE '^_zips$|^extras$' | sort | column 2>/dev/null || ls -1 "$DEST" | grep -viE '^_zips$|^extras$' | sort
 echo
+echo "Manuals/source/docs kept in $EXTRA_DIR ($extra_n files, not loaded)."
 echo "Boot with everything:  scripts/load-all.sh"

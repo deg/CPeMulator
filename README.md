@@ -103,13 +103,15 @@ The fun part. Two scripts take you from nothing to a fully-loaded CP/M machine:
 ./scripts/load-all.sh         # boot CP/M with the whole library on drive A:
 ```
 
-`fetch-software.sh` pulls ~30 programs from the [CP/M archive](http://www.retroarchive.org/cpm/)
-into a (gitignored) `software/` directory and writes a `PROGRAMS.TXT` guide;
-`load-all.sh` copies everything onto drive A: and boots. Both are forgiving — the
-fetch tolerates the occasionally-flaky archive and reuses cached downloads, and
-the whole library fits at once on the default **8 MB** drive (about one partition
-of a ~$10,000 1980 Corvus Winchester — the largest a single CP/M 2.2 drive can
-be).
+`fetch-software.sh` pulls a library of programs from the
+[CP/M archive](http://www.retroarchive.org/cpm/) into a (gitignored) `software/`
+directory and writes a `PROGRAMS.TXT` guide; `load-all.sh` copies them onto drive
+A: and boots. The programs (~2.5 MB) fit comfortably on the default **8 MB** drive
+(about one partition of a ~$10,000 1980 Corvus Winchester — the largest a single
+CP/M 2.2 drive can be), leaving room to actually work. Non-program files that come
+in the archives — scanned manuals, source, docs — are kept in `software/extras/`
+for browsing but are **not** loaded onto the disk. Both scripts are forgiving:
+the fetch tolerates the occasionally-flaky archive and reuses cached downloads.
 
 Once you're at the `A>` prompt:
 
