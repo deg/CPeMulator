@@ -10,12 +10,12 @@ virtual machine, then boots the **genuine** Digital Research CP/M 2.2 command
 processor (CCP) and kernel (BDOS) — the same binaries that ran on real hardware —
 rather than re-implementing the operating system in Rust.
 
-> **Status: early development.** The **Z80 CPU core is complete and validated** —
-> the full instruction set (8080 base plus all CB/ED/DD/FD extensions),
-> interrupts, and a disassembler, all passing the `zexdoc` exerciser. Next comes
-> the virtual machine and the path to booting CP/M. There is **no runnable
-> emulator yet** — you cannot boot CP/M or run software at this stage.
-> See [Project status](#project-status) for exactly what works. If you are a
+> **Status: early development, but it boots.** The Z80 CPU core is complete and
+> `zexdoc`-validated, and **the genuine CP/M 2.2 now boots to the `A>` prompt** on
+> the virtual machine — `DIR` reads the directory and a real disk image is served
+> through the HLE BIOS. So far this runs headless (driven by tests); an
+> interactive terminal front end is the next step. See
+> [Project status](#project-status) for exactly what works. If you are a
 > developer, start with [`dev-docs/`](dev-docs/README.md).
 
 ---
@@ -76,21 +76,21 @@ the OS layer. Here is the honest state of each piece.
 
 | Component                         | Status         |
 |-----------------------------------|----------------|
-| Z80 CPU — 8080 base instructions  | ✅ done, tested |
-| Z80 CPU — Z80 extensions (CB/ED/DD/FD) | ✅ done, tested |
-| Z80 CPU — interrupts (IM 0/1/2)   | ✅ done, tested |
-| Z80 CPU — disassembler            | ✅ done, tested |
-| Z80 CPU — validated vs. exercisers (zexdoc) | ✅ **passes** (zexall: 1 group short) |
-| Virtual machine & memory          | ✅ done, tested |
-| HLE BIOS & boot                   | ⬜ not started  |
-| Disk subsystem                    | ⬜ not started  |
-| Console & terminal                | ⬜ not started  |
-| Debugger / monitor (the frontend) | ⬜ not started  |
-| Boot CP/M to the `A>` prompt      | ⬜ not started  |
+| Z80 CPU — 8080 base instructions  | [x] done, tested |
+| Z80 CPU — Z80 extensions (CB/ED/DD/FD) | [x] done, tested |
+| Z80 CPU — interrupts (IM 0/1/2)   | [x] done, tested |
+| Z80 CPU — disassembler            | [x] done, tested |
+| Z80 CPU — validated vs. exercisers (zexdoc) | [x] **passes** (zexall: 1 group short) |
+| Virtual machine & memory          | [x] done, tested |
+| HLE BIOS & boot                   | [x] boots to `A>` |
+| Disk subsystem                    | [~] 8" disk read/write (images/dir tooling next) |
+| Console & terminal                | [~] headless console (interactive terminal next) |
+| Debugger / monitor (the frontend) | [ ] not started  |
+| Boot CP/M to the `A>` prompt      | [x] headless (`DIR` works) |
 
-**There is no interactive frontend yet.** The way to see the work today is to run
-the test suite (below). An interactive monitor and a runnable CP/M come later in
-the [roadmap](#roadmap).
+**The interactive terminal is not wired up yet**, so you drive CP/M through tests
+for now (the boot integration tests in `crates/cpemu/src/bios.rs` boot the real
+CCP/BDOS and run `DIR`). An interactive front end and a monitor come next.
 
 ## Building and testing
 
