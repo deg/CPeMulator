@@ -1,0 +1,12 @@
+[package]
+name = "cpemu-cpu"
+version = "0.0.0"
+description = "Z80/8080 CPU core and disassembler for the cpemu CP/M emulator."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# Intentionally dependency-light: this crate must stay testable in isolation
+# against the Z80/8080 exercisers.
+[dependencies]

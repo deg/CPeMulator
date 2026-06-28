@@ -1,0 +1,30 @@
+# cpemu — a from-scratch Z80 CP/M 2.2 emulator in Rust.
+#
+# Lean two-crate workspace:
+#   crates/cpu   — cpemu-cpu: Z80/8080 core + disassembler. Dependency-light,
+#                  validated in isolation against standard exercisers (zexdoc gate).
+#   crates/cpemu — the system layer (memory, HLE BIOS, disk, console, monitor)
+#                  plus the CLI binary.
+#
+# A module inside crates/cpemu is promoted to its own crate only when a seam
+# earns it (e.g. testing the disk subsystem against a fake CPU).
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/cpu",
+    "crates/cpemu",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+authors = ["David Goldfarb <deg@degel.com>"]
+repository = ""
+
+# Shared dependency versions live here and are referenced from member crates
+# with `workspace = true`. Per repo convention, versions are exact — no ^, ~,
+# or ranges.
+[workspace.dependencies]
+cpemu-cpu = { path = "crates/cpu" }

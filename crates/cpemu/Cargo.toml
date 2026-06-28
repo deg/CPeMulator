@@ -1,0 +1,15 @@
+[package]
+name = "cpemu"
+version = "0.0.0"
+description = "A from-scratch Z80 CP/M 2.2 emulator: boots genuine CCP+BDOS via an HLE BIOS."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "cpemu"
+path = "src/main.rs"
+
+[dependencies]
+cpemu-cpu = { workspace = true }
