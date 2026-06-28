@@ -10,4 +10,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod executor;
+pub mod machine;
 pub mod memory;

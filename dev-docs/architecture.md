@@ -65,6 +65,22 @@ the CP/M directory and allocation structures itself, exactly as on real hardware
 This matters because subtle BDOS behaviors that vintage software depends on come
 for free instead of having to be re-created.
 
+**How the trap actually works (PC-based, not port-based).** A natural guess is
+that the BIOS stub would do `OUT (port),A` and the machine's I/O handler would
+service it. That does not work: a BIOS function needs the CPU's registers (for
+example `CONOUT` emits the character in register `C`), but `OUT (n),A` conveys
+only `A` to `Bus::output`, which has no access to the CPU — and giving the bus a
+CPU reference is impossible, because the CPU already borrows the bus for the
+duration of an instruction. So instead an **executor** owns the CPU, the machine,
+and the BIOS handler as three separate objects, and checks the program counter
+each step. When PC lands exactly on a BIOS vector address, the executor calls the
+handler with full access to both the CPU and memory, then acts on the result:
+`Return` (pop the return address — the common case), `Jump` (transfer control,
+for the boot vectors that never return), or `Stop`. The guest never executes any
+BIOS code; it just jumps to where the BIOS would live and Rust does the work.
+This is implemented in `crates/cpemu/src/{machine,executor}.rs`; see
+[development.md](development.md) and the module docs for details.
+
 ## Decision 2: Boot the way a real machine boots
 
 cpemu does not simply copy CCP and BDOS into memory at startup. It emulates the
