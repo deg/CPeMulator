@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "cpemu",
+  "project_id": "d383e5b7-91e7-4d85-ac4a-ff58fcb8ce37"
+}
