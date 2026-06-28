@@ -30,6 +30,10 @@ OPTIONS:
     --raw       Disable ADM-3A terminal translation (pass output through).
     --upper     Fold typed input to UPPERCASE (for old programs that expect
                 capital letters).
+    --no-map-delete
+                Keep CP/M's authentic RUBOUT: the Delete key deletes a char but
+                re-echoes it. By default Delete is mapped to Backspace so it
+                erases cleanly.
     --floppy    Use a small 8\" floppy (~241 KB) instead of the default 8 MB
                 disk.
     --help, -h  Show this help and exit.
@@ -51,6 +55,7 @@ fn main() {
     let mut mhz = 4.0_f64;
     let mut throttled = true;
     let mut upper = false;
+    let mut map_delete = true;
     let mut format = DiskFormat::hard_8mb();
     let mut files = Vec::new();
     for arg in std::env::args().skip(1) {
@@ -62,6 +67,7 @@ fn main() {
             "--raw" => mode = TerminalMode::Raw,
             "--fast" => throttled = false,
             "--upper" => upper = true,
+            "--no-map-delete" => map_delete = false,
             "--floppy" => format = DiskFormat::floppy_8inch(),
             _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
                 Ok(n) if n > 0.0 => mhz = n,
@@ -101,7 +107,7 @@ fn main() {
         }
     );
 
-    let console = match TerminalConsole::new(mode, upper) {
+    let console = match TerminalConsole::new(mode, upper, map_delete) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("cpemu: needs an interactive terminal (could not enter raw mode: {e})");

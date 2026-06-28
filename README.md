@@ -145,6 +145,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--mhz=N` | CPU clock in MHz (default 4). Lower it (`--mhz=2`) if a game runs too fast. |
 | `--fast` | Run unthrottled. |
 | `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
+| `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
 | `--raw` | Disable ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
 

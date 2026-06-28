@@ -48,15 +48,18 @@ pub struct TerminalConsole {
     /// Fold typed lowercase letters to uppercase (for old programs that expect
     /// capitals).
     upper: bool,
+    /// Map the host Delete key (`0x7F`) to Backspace (`^H`, `0x08`) so it erases
+    /// cleanly instead of triggering CP/M's RUBOUT (which re-echoes the char).
+    map_delete: bool,
     _raw: RawGuard,
 }
 
 impl TerminalConsole {
     /// Put the terminal into raw mode and start reading keystrokes, translating
-    /// guest output according to `mode`. With `upper`, typed lowercase letters
-    /// are folded to uppercase. Fails if there is no interactive terminal to
-    /// control.
-    pub fn new(mode: TerminalMode, upper: bool) -> io::Result<Self> {
+    /// guest output according to `mode`. `upper` folds typed lowercase to
+    /// uppercase; `map_delete` turns the Delete key into a clean Backspace.
+    /// Fails if there is no interactive terminal to control.
+    pub fn new(mode: TerminalMode, upper: bool, map_delete: bool) -> io::Result<Self> {
         let raw = RawGuard::enable()?;
         let (tx, rx) = mpsc::channel();
         let quit = Arc::new(AtomicBool::new(false));
@@ -84,18 +87,17 @@ impl TerminalConsole {
             term: Terminal::new(mode),
             quit,
             upper,
+            map_delete,
             _raw: raw,
         })
     }
+}
 
-    /// Apply uppercase folding to a delivered key, when enabled.
-    fn fold(&self, b: u8) -> u8 {
-        if self.upper {
-            b.to_ascii_uppercase()
-        } else {
-            b
-        }
-    }
+/// Transform a typed key on the way to the guest: map Delete to Backspace
+/// (`map_delete`) and/or fold lowercase letters to uppercase (`upper`).
+fn map_key(b: u8, upper: bool, map_delete: bool) -> u8 {
+    let b = if map_delete && b == 0x7F { 0x08 } else { b };
+    if upper { b.to_ascii_uppercase() } else { b }
 }
 
 impl Console for TerminalConsole {
@@ -104,7 +106,7 @@ impl Console for TerminalConsole {
             Some(b) => b,
             None => self.rx.recv().ok()?, // blocks until a key, None when closed
         };
-        Some(self.fold(b))
+        Some(map_key(b, self.upper, self.map_delete))
     }
 
     fn status(&mut self) -> bool {
@@ -132,5 +134,34 @@ impl Console for TerminalConsole {
 
     fn wants_quit(&self) -> bool {
         self.quit.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::map_key;
+
+    #[test]
+    fn delete_maps_to_backspace_by_default() {
+        // Delete (0x7F) -> Backspace (0x08) when mapping is on; untouched off.
+        assert_eq!(map_key(0x7F, false, true), 0x08);
+        assert_eq!(map_key(0x7F, false, false), 0x7F);
+        // A real Backspace is left alone either way.
+        assert_eq!(map_key(0x08, false, true), 0x08);
+    }
+
+    #[test]
+    fn upper_folds_only_letters() {
+        assert_eq!(map_key(b'a', true, false), b'A');
+        assert_eq!(map_key(b'Z', true, false), b'Z');
+        assert_eq!(map_key(b'5', true, false), b'5');
+        assert_eq!(map_key(b'a', false, false), b'a');
+    }
+
+    #[test]
+    fn delete_then_upper_compose() {
+        // 0x7F is not a letter, so order doesn't matter; both transforms apply.
+        assert_eq!(map_key(0x7F, true, true), 0x08);
+        assert_eq!(map_key(b'q', true, true), b'Q');
     }
 }
