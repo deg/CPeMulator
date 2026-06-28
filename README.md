@@ -25,6 +25,7 @@ rather than re-implementing the operating system in Rust.
 - [What is CP/M, and why emulate it?](#what-is-cpm-and-why-emulate-it)
 - [Design in one paragraph](#design-in-one-paragraph)
 - [Project status](#project-status)
+- [Running classic CP/M software](#running-classic-cpm-software)
 - [Building and testing](#building-and-testing)
 - [Repository layout](#repository-layout)
 - [Roadmap](#roadmap)
@@ -93,6 +94,75 @@ integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
 headless (booting and running `DIR`). Still to come: putting your own files on
 the disk, mounting real disk images, and a debugger/monitor.
 
+## Running classic CP/M software
+
+The fun part. Two scripts take you from nothing to a fully-loaded CP/M machine:
+
+```bash
+./scripts/fetch-software.sh   # once: download a library of classic CP/M software
+./scripts/load-all.sh         # boot CP/M with the whole library on drive A:
+```
+
+`fetch-software.sh` pulls ~30 programs from the [CP/M archive](http://www.retroarchive.org/cpm/)
+into a (gitignored) `software/` directory and writes a `PROGRAMS.TXT` guide;
+`load-all.sh` copies everything onto drive A: and boots. Both are forgiving — the
+fetch tolerates the occasionally-flaky archive and reuses cached downloads, and
+the whole library fits at once on the default **8 MB** drive (about one partition
+of a ~$10,000 1980 Corvus Winchester — the largest a single CP/M 2.2 drive can
+be).
+
+Once you're at the `A>` prompt:
+
+```text
+A>TYPE PROGRAMS.TXT     a guide to everything on the disk
+A>DIR                   list the files
+A>ZORK1                 play Zork I  (then ZORK2, ZORK3)
+A>ADVENTUR              Colossal Cave Adventure
+A>SARGON                a game of chess
+A>DBASE                 dBASE II  (QUIT to exit)
+A>MBASIC STAR.BAS       Star Trek  (answer questions with a CAPITAL Y)
+```
+
+Included: the Zork trilogy, Colossal Cave Adventure, Sargon chess, Ladder,
+Microsoft BASIC, Turbo Pascal, dBASE II, Multiplan, and the standard CP/M
+utilities (STAT, PIP, ED, DDT, ASM …), plus a pile of BASIC games (`MBASIC
+<name>.BAS`).
+
+You can also load specific files yourself — any arguments are copied onto drive
+A: before boot:
+
+```bash
+cargo run -- software/ZORK1.COM software/ZORK1.DAT          # just Zork I
+cargo run -- --mhz=2 software/LADDER.COM software/LADDER.DAT  # slow it down
+```
+
+### Options
+
+Run `cargo run -- --help` for the full list. The most useful:
+
+| Flag | Effect |
+|------|--------|
+| `--mhz=N` | CPU clock in MHz (default 4). Lower it (`--mhz=2`) if a game runs too fast. |
+| `--fast` | Run unthrottled. |
+| `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
+| `--raw` | Disable ADM-3A terminal translation. |
+| `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
+
+Flags are forwarded by `load-all.sh` too, e.g. `./scripts/load-all.sh --mhz=2`.
+
+### Keys
+
+- **Ctrl-\\** — quit the emulator (always works, even from a stuck program).
+- **Ctrl-C** — CP/M's own warm boot, back to `A>` (when the running program lets it).
+- To leave a *program*, use its own command — MBASIC `SYSTEM`, dBASE `QUIT`, etc.
+
+### Full-screen apps
+
+The console translates **ADM-3A** terminal codes to ANSI, so full-screen programs
+(Ladder, the Turbo Pascal editor, Multiplan) display correctly, while plain text
+and modern `ESC[` sequences pass straight through. WordStar and SuperCalc load
+but need their own terminal-install pass first (a future item).
+
 ## Building and testing
 
 cpemu is a standard Rust workspace. You need a recent stable Rust toolchain
@@ -109,39 +179,9 @@ cargo test --workspace
 make check
 ```
 
-To boot CP/M interactively in your terminal:
-
-```bash
-cargo run                       # boots an empty drive A: to an A> prompt
-cargo run -- STAT.COM GAME.COM  # places host files on A: first, then boots
-cargo run -- --mhz=2 LADDER.COM LADDER.DAT   # run the Z80 at 2 MHz
-# quit with Ctrl-\
-```
-
-The CPU is paced to a target clock (default **4 MHz**) so that games which time
-themselves with CPU delay loops run at a realistic speed. Tune it with `--mhz=N`
-(e.g. `--mhz=2` if a game still feels too fast) or run flat-out with `--fast`.
-
-Any files you pass are copied onto drive A: before boot, so `DIR` lists them and
-you can run a `.COM` by typing its name. (The disk is rebuilt fresh each run.)
-
-By default the console translates **ADM-3A** terminal codes to ANSI, so
-full-screen programs (Ladder, the Turbo Pascal editor) display correctly while
-plain text and modern `ESC[` sequences pass straight through. Add `--raw` to
-disable translation.
-
-Drive A: is an **8 MB hard disk** by default — the largest a single CP/M 2.2
-drive can be (the OS does 16-bit sector math, capping a drive at ~8 MB; this is
-about one partition of a ~$10,000 1980 Corvus Winchester). It holds the entire
-software collection at once. Use `--floppy` for the small 8" disk instead.
-
-To boot with *all* the fetched software on drive A: in one command:
-
-```bash
-./scripts/fetch-software.sh   # once, to download the programs
-./scripts/load-all.sh         # boots with the whole catalog loaded (~460 KB)
-./scripts/load-all.sh --mhz=2 # flags are forwarded to the emulator
-```
+To boot CP/M interactively, `cargo run` (quit with **Ctrl-\\**). See
+[Running classic CP/M software](#running-classic-cpm-software) for the full
+experience, and `cargo run -- --help` for every option.
 
 ## Repository layout
 

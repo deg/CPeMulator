@@ -45,14 +45,18 @@ pub struct TerminalConsole {
     pending: Option<u8>,
     term: Terminal,
     quit: Arc<AtomicBool>,
+    /// Fold typed lowercase letters to uppercase (for old programs that expect
+    /// capitals).
+    upper: bool,
     _raw: RawGuard,
 }
 
 impl TerminalConsole {
     /// Put the terminal into raw mode and start reading keystrokes, translating
-    /// guest output according to `mode`. Fails if there is no interactive
-    /// terminal to control.
-    pub fn new(mode: TerminalMode) -> io::Result<Self> {
+    /// guest output according to `mode`. With `upper`, typed lowercase letters
+    /// are folded to uppercase. Fails if there is no interactive terminal to
+    /// control.
+    pub fn new(mode: TerminalMode, upper: bool) -> io::Result<Self> {
         let raw = RawGuard::enable()?;
         let (tx, rx) = mpsc::channel();
         let quit = Arc::new(AtomicBool::new(false));
@@ -79,17 +83,28 @@ impl TerminalConsole {
             pending: None,
             term: Terminal::new(mode),
             quit,
+            upper,
             _raw: raw,
         })
+    }
+
+    /// Apply uppercase folding to a delivered key, when enabled.
+    fn fold(&self, b: u8) -> u8 {
+        if self.upper {
+            b.to_ascii_uppercase()
+        } else {
+            b
+        }
     }
 }
 
 impl Console for TerminalConsole {
     fn read(&mut self) -> Option<u8> {
-        if let Some(b) = self.pending.take() {
-            return Some(b);
-        }
-        self.rx.recv().ok() // blocks until a key, None when input closes
+        let b = match self.pending.take() {
+            Some(b) => b,
+            None => self.rx.recv().ok()?, // blocks until a key, None when closed
+        };
+        Some(self.fold(b))
     }
 
     fn status(&mut self) -> bool {
