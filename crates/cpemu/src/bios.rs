@@ -103,10 +103,23 @@ impl<C: Console> CpmBios<C> {
         self.config.bios_base.wrapping_add(0x0100)
     }
 
-    /// Write the static BIOS data structures (DPH → DPB, plus the directory
-    /// buffer and allocation/checksum vectors) into guest memory. Call once,
-    /// before running.
+    /// Write the static BIOS structures into guest memory: the jump table and
+    /// the disk parameter header/block (and its buffers). Call once, before
+    /// running.
     pub fn install(&self, mem: &mut Memory) {
+        // The BIOS jump table. Each vector is `JP <its own address>`. We trap by
+        // PC, so the bytes here are never executed when BDOS calls a vector —
+        // but some programs (notably MBASIC) build their console I/O by reading
+        // a vector's `JP` *operand* to find the handler address, then calling
+        // that. Pointing each operand at the vector itself means the address
+        // they extract also traps into Rust. An empty (zero) table makes such a
+        // program call address 0 (a warm boot) instead of the console.
+        for n in 0..crate::config::BIOS_VECTORS {
+            let addr = self.config.bios_vector(n);
+            mem.write(addr, 0xC3); // JP
+            mem.write16(addr + 1, addr);
+        }
+
         let dph = self.dph_addr();
         let dpb = dph + 0x10;
         let dirbuf = dph + 0x20;
@@ -340,6 +353,43 @@ mod tests {
             out.to_uppercase().contains("HELLO"),
             "DIR should list the added file:\n{out}"
         );
+    }
+
+    #[test]
+    fn bios_jump_table_is_populated() {
+        // Each vector must be `JP <its own address>` so programs that read a
+        // vector's operand to find the handler get a trapping address.
+        let cfg = MachineConfig::virtual_default();
+        let mut m = crate::machine::Machine::from_config(&cfg);
+        CpmBios::new(cfg, ScriptedConsole::default(), Disk::blank()).install(&mut m.mem);
+        let conout = cfg.bios_vector(4); // CONOUT
+        assert_eq!(m.mem.read(conout), 0xC3); // JP
+        assert_eq!(m.mem.read16(conout + 1), conout); // operand points at itself
+    }
+
+    #[test]
+    fn program_can_call_a_bios_vector_via_its_operand() {
+        // Mimics MBASIC: read the CONOUT vector's JP operand from the jump table,
+        // then CALL that address to print a character. Regresses the empty-jump-
+        // table bug that made MBASIC call address 0 (warm boot) and print nothing.
+        #[rustfmt::skip]
+        let prog: &[u8] = &[
+            0x2A, 0x01, 0x00,       // LD HL,(0x0001)   ; HL = WBOOT vector = bios_base+3
+            0x11, 0x0A, 0x00,       // LD DE,0x000A
+            0x19,                   // ADD HL,DE        ; HL = bios_base+13 (CONOUT JP operand)
+            0x7E,                   // LD A,(HL)        ; low byte of operand
+            0x23,                   // INC HL
+            0x66,                   // LD H,(HL)        ; high byte
+            0x6F,                   // LD L,A           ; HL = CONOUT vector address
+            0x22, 0x11, 0x01,       // LD (0x0111),HL   ; patch the CALL below
+            0x0E, 0x58,             // LD C,'X'
+            0xCD, 0x00, 0x00,       // CALL 0x0000      ; operand at 0x0111, patched above
+            0xC9,                   // RET
+        ];
+        let mut disk = Disk::make_system_disk(CCP, BDOS);
+        disk.add_file("VEC.COM", prog).unwrap();
+        let out = boot_disk(disk, "VEC\r");
+        assert!(out.contains('X'), "vector-via-operand call failed:\n{out}");
     }
 
     #[test]
