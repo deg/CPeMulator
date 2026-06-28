@@ -86,7 +86,10 @@ DIR  [pattern]   List files.  DIR  /  DIR *.COM  /  DIR B:
 TYPE  FILE       Show a text file.  e.g.  TYPE PROGRAMS.TXT
 ERA  pattern     Erase files.  e.g.  ERA *.BAK
 REN  NEW=OLD     Rename a file.  e.g.  REN NEW.TXT=OLD.TXT
-USER  n          Switch user area 0-15 (each keeps its own files).
+USER  n          Switch file group 0-15 (same disk, NOT a new
+                 drive).  Other groups' files are hidden, not
+                 erased; programs only run from their own group.
+                 USER 0 is home - go back there to find things.
 SAVE  n FILE     Save n 256-byte pages of memory to a file.
 A:  B:  ...      Change the current drive (type a letter + colon).
 
