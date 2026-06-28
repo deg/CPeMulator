@@ -31,11 +31,31 @@ CP/M and its derivatives are redistributable. Per `LICENSE.txt`, Bryan Sparks
 available in a nonexclusive manner CP/M and its derivatives."* See `LICENSE.txt`
 for the verbatim text; canonical copy at <http://www.cpm.z80.de/license.html>.
 
-## Why source, not a prebuilt binary (yet)
+## The assembled binaries (`ccp.bin`, `bdos.bin`)
 
-The CCP/BDOS assemble at an **origin that depends on the target machine's memory
-size** (e.g. the upstream example builds a 44K system with CCP@`0x9400`,
-BDOS@`0x9C00`). A committed binary would bake in a memory map we have not yet
-designed. The binary-vs-assemble decision and the chosen origin are deferred to
-the **HLE BIOS & authentic boot** epic (`cpemu-pal`), where the memory layout is
-fixed; the assembler (Macro Assembler AS / `asl`) will be added to tooling then.
+| File | Origin | Size |
+|------|--------|------|
+| `ccp.bin`  | `0xE400` | 2048 bytes (`0x800`) |
+| `bdos.bin` | `0xEC00` | 3584 bytes (`0xE00`) |
+
+These are the genuine CCP and BDOS, assembled from the source here at the origins
+of cpemu's memory map (defined in `crates/cpemu/src/config.rs`). They are
+committed so that normal builds and CI never need an assembler.
+
+**How they were generated** (reproducible via `make cpm-binaries`):
+
+- Assembler: **Macro Assembler AS** (`asl`), V1.42 Beta, built from
+  `http://john.ccac.rwth-aachen.de:8000/ftp/as/source/c_version/asl-current.tar.gz`
+  with `make binaries` (the `Makefile.def-arm-osx` sample on macOS; no texlive
+  needed — that is only for the docs). Install `asl` and `p2bin` on your `PATH`.
+- Commands (also encoded in the `cpm-binaries` Makefile target):
+  ```sh
+  asl -D origin=0e400h -o ccp.p  -L -OLIST ccp.lst  ccp.asm
+  p2bin -l '$00' -r '$e400-$ebff' ccp.p  ccp.bin     # CCP  @ 0xE400, 0x800 bytes
+  asl -D origin=0ec00h -o bdos.p -L -OLIST bdos.lst bdos.asm
+  p2bin -l '$00' -r '$ec00-$f9ff' bdos.p bdos.bin    # BDOS @ 0xEC00, 0xE00 bytes
+  ```
+
+The `-r` range pads each image to its full region; the underlying code is
+slightly smaller (CCP 1887 bytes, BDOS 3453 bytes). To re-target a different
+memory map, change the origins here and in `config.rs` together.

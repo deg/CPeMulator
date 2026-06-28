@@ -3,6 +3,10 @@
 /target/
 **/*.rs.bk
 
+# Macro Assembler AS intermediates (from `make cpm-binaries`)
+third-party/cpm22/*.p
+third-party/cpm22/*.lst
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
