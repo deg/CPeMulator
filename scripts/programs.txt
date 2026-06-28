@@ -77,21 +77,35 @@ WS
    set it up for a terminal.  Commands are Ctrl-key combos;
    ^KX saves and exits, ^KQ quits without saving.
 
----------------- UTILITIES (most take a FILENAME) --------------
+---------------- BUILT-IN COMMANDS -----------------------------
+These are part of CP/M itself, always available - they are NOT
+files on the disk, so they do not appear in  DIR *.COM .  CP/M
+2.2 has no HELP command; this file is your guide.
 
-DIR              List files (built in).  e.g.  DIR *.COM
+DIR  [pattern]   List files.  DIR  /  DIR *.COM  /  DIR B:
+TYPE  FILE       Show a text file.  e.g.  TYPE PROGRAMS.TXT
+ERA  pattern     Erase files.  e.g.  ERA *.BAK
+REN  NEW=OLD     Rename a file.  e.g.  REN NEW.TXT=OLD.TXT
+USER  n          Switch user area 0-15 (each keeps its own files).
+SAVE  n FILE     Save n 256-byte pages of memory to a file.
+A:  B:  ...      Change the current drive (type a letter + colon).
+
+Wildcards: ? = any one character, * = the rest of the name or
+type.  So  *.COM  is every .COM file,  A*.*  is names from A.
+
+---------------- UTILITIES (programs on the disk) --------------
+Run these by name; most take a FILENAME.
+
 STAT             Free space and file sizes.  STAT *.*
-TYPE FILE        Show a text file.  e.g.  TYPE PROGRAMS.TXT
-ED FILE          Edit a file - NEEDS a filename.  Inside ED:
+PIP  NEW=OLD     Copy a file.  e.g.  PIP B:=A:FOO.TXT
+ED  FILE         Edit a file - NEEDS a filename.  Inside ED:
                  I = insert (type lines), ^Z = stop inserting,
                  E = save and exit.
-PIP NEW=OLD      Copy a file.  e.g.  PIP B:=A:FOO.TXT
-ERA FILE         Erase files (built in).  e.g.  ERA *.BAK
-REN NEW=OLD      Rename a file (built in).
-DDT FILE         Debugger.  Type  G0  to exit to A>.
-ASM FILE         8080 assembler (expects FILE.ASM).
-DUMP FILE        Hex-dump a file.
-SAVE n FILE      Save n 256-byte pages of memory to a file.
+DDT  FILE        Debugger.  Type  G0  to exit to A>.
+ASM  FILE        8080 assembler (expects FILE.ASM).
+LOAD  FILE       Turn FILE.HEX into a runnable FILE.COM.
+DUMP  FILE       Hex-dump a file.
+SUBMIT  FILE     Run a batch of commands from FILE.SUB.
 
 ================================================================
   Built with cpemu, a from-scratch Z80 CP/M emulator in Rust.
