@@ -67,6 +67,28 @@ fetch "$base/business/Suprcalc.zip" # SuperCalc spreadsheet
 fetch "$base/business/MULTPLAN.ZIP" # Microsoft Multiplan
 fetch "$base/dbase/dbaseii.zip"     # dBASE II database
 
+# Second-pass trim: a few archives bundle, alongside the actual program,
+# terminal-definition overlays (SuperCalc's per-terminal patch files) and CP/M
+# system-regeneration tools (MOVCPM/SYSGEN/...). Those are install fragments and
+# system-build utilities, not things you run at the A> prompt, and ~30 of them
+# badly clutter DIR. The extension-based split above can't tell them apart from
+# real programs (they're all .COM), so move this explicit list to extras/ — they
+# stay discoverable under software/extras/, just off the working disk. (-iname
+# makes the match case-insensitive, as the archives mix cases.)
+NOISE="
+  2ADM3.COM 2DEFAULT.COM 2SUPERBR.COM 2VECTOR.COM 2XEROX.COM 2ZENITH.COM
+  3ADM3.COM 3DEFAULT.COM 3SUPERBR.COM 3VECTOR.COM 3XEROX.COM 3ZENITH.COM
+  EADM3.COM EDEFAULT.COM ESUPERBR.COM EVECTOR.COM EXEROX.COM EZENITH.COM
+  SCHAZ15.COM
+  INSTALL.COM INSTALL.DAT INSTALL.LD INSTALL.MSG INSTALL.OVL INSTALL.SPC
+  MOVCPM.COM SYSGEN.COM CCSYSGEN.COM CCSINIT.COM CPM24CCS.COM RLOCBIOS.COM
+  GENMOD.COM MOVEPRN.COM FINDBAD.COM BACKUP.COM
+  -CCSCPM.251 ZOSO.22 CATALOG.22 CATALOG.24 CATALOG.26 DISKDEF.LIB
+"
+for n in $NOISE; do
+  find "$DEST" -maxdepth 1 -iname "$n" -exec mv -f {} "$EXTRA_DIR/" \; 2>/dev/null || true
+done
+
 # Write the committed guide (scripts/programs.txt) onto the disk as PROGRAMS.TXT,
 # converting to CR/LF and adding a trailing ^Z so CP/M's TYPE displays it cleanly.
 # (The guide's source is version-controlled; software/PROGRAMS.TXT is generated.)
