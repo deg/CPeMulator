@@ -4,21 +4,19 @@
 //! kept dependency-light so it can be validated in isolation against the
 //! standard exercisers (zexdoc is the v1 correctness gate).
 //!
-//! This crate is currently a skeleton; the CPU implementation lands under the
-//! "Z80/8080 CPU core" epic (registers/flags/decode, the 8080 base set, the
-//! Z80 prefixes, interrupts, and the disassembler).
+//! The execution framework is in place ([`Cpu`], [`Bus`], [`Registers`], and an
+//! observable [`StepResult`]); the full instruction set is filled in under the
+//! "Z80/8080 CPU core" epic, replacing the [`Stop::Illegal`] opcodes.
 
 #![forbid(unsafe_code)]
 
+mod bus;
+mod cpu;
+mod registers;
+
+pub use bus::{Bus, PlainBus};
+pub use cpu::{Cpu, StepResult, Stop};
+pub use registers::{Registers, flag};
+
 /// Crate version string, for banners and diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn crate_builds() {
-        assert!(!VERSION.is_empty());
-    }
-}
