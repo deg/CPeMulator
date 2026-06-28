@@ -49,67 +49,14 @@ fetch "$base/business/Suprcalc.zip" # SuperCalc spreadsheet
 fetch "$base/business/MULTPLAN.ZIP" # Microsoft Multiplan
 fetch "$base/dbase/dbaseii.zip"     # dBASE II database
 
-# A guide to the software, written into the disk as PROGRAMS.TXT (CR/LF line
-# endings + a trailing ^Z so CP/M's TYPE displays it cleanly). load-all.sh copies
-# it onto drive A:, so inside CP/M you can `TYPE PROGRAMS.TXT`.
-awk '{ printf "%s\r\n", $0 }' > "$DEST/PROGRAMS.TXT" <<'GUIDE'
-================================================================
-            CP/M 2.2  -  PROGRAMS ON THIS DISK
-================================================================
-
-Run a program by typing its name at the A> prompt.  BASIC games
-(names ending in .BAS) are run with:   MBASIC NAME.BAS
-
-Leaving a program:
-  - Most have their own quit command (noted below).
-  - Ctrl-C returns to A> when the program cooperates.
-  - In MBASIC, type  SYSTEM
-  - To quit the emulator entirely, press  Ctrl-\
-
-Tip: some old programs only accept CAPITAL letters.  Start cpemu
-with  --upper , or just hold Shift.
-
----------------- GAMES & ADVENTURES ----------------------------
-
-ZORK1  ZORK2  ZORK3  Infocom's legendary text adventures.  Try
-                     OPEN MAILBOX, READ LEAFLET, GO NORTH, ...
-ADVENTUR             Colossal Cave Adventure - the original.
-SARGON               Sargon - play a full game of chess.
-LADDER               Arcade platformer (try --mhz=2 if too fast).
-STAR.BAS             Star Trek.  Run:  MBASIC STAR.BAS
-                     (answer the questions with a CAPITAL Y).
-... and many more .BAS games - run them with  MBASIC <name>.BAS
-
----------------- LANGUAGES -------------------------------------
-
-MBASIC               Microsoft BASIC-80.  Write and RUN programs.
-                     Exit with the  SYSTEM  command.
-TURBO                Borland Turbo Pascal 3.01a - edit, compile,
-                     and run Pascal.
-
----------------- PRODUCTIVITY ----------------------------------
-
-DBASE                dBASE II - the classic database.  Quit with
-                     the  QUIT  command.
-MP                   Microsoft Multiplan - a spreadsheet.
-SC                   SuperCalc spreadsheet (needs INSTALL first).
-WS                   WordStar word processor (needs WINSTALL).
-
----------------- UTILITIES -------------------------------------
-
-DIR                  List the files on a drive (built into CP/M).
-STAT                 Disk and file status; free space.
-PIP                  Copy files, e.g.  PIP NEW.TXT=OLD.TXT
-ED                   A line-oriented text editor.
-TYPE FILE            Show a text file (e.g. TYPE PROGRAMS.TXT).
-DDT                  The CP/M debugger.   ASM - 8080 assembler.
-DUMP FILE            Hex-dump a file.
-
-================================================================
-  Built with cpemu, a from-scratch Z80 CP/M emulator in Rust.
-================================================================
-GUIDE
-printf '\032' >> "$DEST/PROGRAMS.TXT"   # ^Z end-of-text marker for CP/M
+# Write the committed guide (scripts/programs.txt) onto the disk as PROGRAMS.TXT,
+# converting to CR/LF and adding a trailing ^Z so CP/M's TYPE displays it cleanly.
+# (The guide's source is version-controlled; software/PROGRAMS.TXT is generated.)
+guide="$(cd "$(dirname "$0")" && pwd)/programs.txt"
+if [ -f "$guide" ]; then
+  awk '{ printf "%s\r\n", $0 }' "$guide" > "$DEST/PROGRAMS.TXT"
+  printf '\032' >> "$DEST/PROGRAMS.TXT"   # ^Z end-of-text marker for CP/M
+fi
 
 echo
 echo "Programs in $DEST:"
