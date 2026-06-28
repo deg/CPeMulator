@@ -81,7 +81,7 @@ the OS layer. Here is the honest state of each piece.
 | Z80 CPU — interrupts (IM 0/1/2)   | ✅ done, tested |
 | Z80 CPU — disassembler            | ✅ done, tested |
 | Z80 CPU — validated vs. exercisers (zexdoc) | ✅ **passes** (zexall: 1 group short) |
-| Virtual machine & memory          | ⬜ not started  |
+| Virtual machine & memory          | ✅ done, tested |
 | HLE BIOS & boot                   | ⬜ not started  |
 | Disk subsystem                    | ⬜ not started  |
 | Console & terminal                | ⬜ not started  |

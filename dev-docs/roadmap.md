@@ -48,10 +48,14 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
   `BIT n,(HL)` undocumented-flag case needs the WZ/MEMPTR register — a stretch
   goal, tracked separately).
 
-### ⬜ Virtual machine & memory — `cpemu-g47`
-- 64 KB RAM and the memory bus
-- I/O port bus and the **BIOS-trap mechanism** the HLE BIOS stub uses
-- A machine-config seam so a real historical machine could be added later
+### ✅ Virtual machine & memory — `cpemu-g47`
+- ✅ 64 KB `Memory` and the memory bus
+- ✅ I/O port bus (open-bus) and the **PC-based BIOS-trap mechanism** — an
+  `Executor` owns the CPU, `Machine`, and BIOS handler and traps when PC lands on
+  a vector (`Return`/`Jump`/`Stop`); see
+  [architecture.md](architecture.md#decision-1-genuine-ccpbdos-high-level-emulated-bios)
+- ✅ Machine-config seam (`MachineConfig`) — the memory map in one place, with a
+  `virtual_default()` for our machine and room for a future real one
 
 ### ⬜ HLE BIOS & authentic boot — `cpemu-pal`
 - BIOS jump table + trap dispatch
@@ -91,12 +95,12 @@ WordStar) as acceptance tests.
 Decisions we consciously postponed rather than guessed at. Each is recorded on
 its bead so it resurfaces at the right time.
 
-- **CP/M binary form and memory origin** (boot epic `cpemu-pal`). We vendored the
-  CCP/BDOS *source*, not a prebuilt binary, because the assembly origin depends on
-  the virtual machine's memory map — which is not designed until the boot epic.
-  When that map is fixed we will choose the origin, assemble (adding Macro
-  Assembler AS to the toolchain), and decide whether to also commit a prebuilt
-  binary. See [`third-party/cpm22/NOTICE.md`](../third-party/cpm22/NOTICE.md).
+- **CP/M binary form** (boot epic `cpemu-pal`). The memory map is now **decided**
+  in `MachineConfig::virtual_default` — CCP at `0xE400`, BDOS at `0xEC00`, BIOS at
+  `0xFA00` — so the genuine CCP/BDOS will be assembled at those origins in the
+  boot epic (adding Macro Assembler AS to the toolchain). What remains open is
+  only whether to *also* commit a prebuilt binary alongside the source. See
+  [`third-party/cpm22/NOTICE.md`](../third-party/cpm22/NOTICE.md).
 - **Host-directory drive strategy** (epic `cpemu-ntn`). When we do build it,
   whether to do live two-way file-system synthesis or the cheaper
   import-at-mount / export-at-unmount approach is itself an open choice.
