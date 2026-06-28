@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 
+mod alu;
 mod bus;
 mod cpu;
 mod registers;
