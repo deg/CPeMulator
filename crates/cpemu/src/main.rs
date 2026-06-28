@@ -6,6 +6,7 @@ use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
 use cpemu::disk::Disk;
 use cpemu::executor::RunExit;
+use cpemu::terminal::TerminalMode;
 
 /// The genuine CP/M 2.2 CCP and BDOS, assembled at our memory-map origins.
 const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
@@ -14,10 +15,15 @@ const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
 fn main() {
     println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
 
-    // Any command-line arguments are host files to place on drive A: before
-    // booting, e.g. `cargo run -- STAT.COM ZORK1.COM`.
+    // `--raw` disables terminal translation; other arguments are host files to
+    // place on drive A: before booting, e.g. `cargo run -- STAT.COM ZORK1.COM`.
+    let mut mode = TerminalMode::Adm3a;
     let mut disk = Disk::make_system_disk(CCP, BDOS);
     for arg in std::env::args().skip(1) {
+        if arg == "--raw" {
+            mode = TerminalMode::Raw;
+            continue;
+        }
         let name = std::path::Path::new(&arg)
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -32,7 +38,7 @@ fn main() {
     }
     println!("Booting drive A:\n");
 
-    let console = match TerminalConsole::new() {
+    let console = match TerminalConsole::new(mode) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("cpemu: needs an interactive terminal (could not enter raw mode: {e})");

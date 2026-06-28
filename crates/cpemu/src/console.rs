@@ -11,6 +11,7 @@
 //! sees as end of input).
 
 use crate::bios::Console;
+use crate::terminal::{Terminal, TerminalMode};
 use crossterm::terminal;
 use std::io::{self, Read, Write};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
@@ -40,13 +41,15 @@ impl Drop for RawGuard {
 pub struct TerminalConsole {
     rx: Receiver<u8>,
     pending: Option<u8>,
+    term: Terminal,
     _raw: RawGuard,
 }
 
 impl TerminalConsole {
-    /// Put the terminal into raw mode and start reading keystrokes. Fails if
-    /// there is no interactive terminal to control.
-    pub fn new() -> io::Result<Self> {
+    /// Put the terminal into raw mode and start reading keystrokes, translating
+    /// guest output according to `mode`. Fails if there is no interactive
+    /// terminal to control.
+    pub fn new(mode: TerminalMode) -> io::Result<Self> {
         let raw = RawGuard::enable()?;
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
@@ -66,6 +69,7 @@ impl TerminalConsole {
         Ok(Self {
             rx,
             pending: None,
+            term: Terminal::new(mode),
             _raw: raw,
         })
     }
@@ -93,8 +97,12 @@ impl Console for TerminalConsole {
     }
 
     fn write(&mut self, byte: u8) {
-        let mut out = io::stdout();
-        let _ = out.write_all(&[byte]);
-        let _ = out.flush();
+        let mut buf = Vec::new();
+        self.term.feed(byte, &mut buf);
+        if !buf.is_empty() {
+            let mut out = io::stdout();
+            let _ = out.write_all(&buf);
+            let _ = out.flush();
+        }
     }
 }

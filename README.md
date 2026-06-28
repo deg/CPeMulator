@@ -84,7 +84,7 @@ the OS layer. Here is the honest state of each piece.
 | Virtual machine & memory          | [x] done, tested |
 | HLE BIOS & boot                   | [x] boots to `A>` |
 | Disk subsystem                    | [~] 8" disk read/write (images/dir tooling next) |
-| Console & terminal                | [~] interactive raw-TTY (terminal-type emulation pending) |
+| Console & terminal                | [x] interactive raw-TTY + ADM-3A emulation |
 | Debugger / monitor (the frontend) | [ ] not started  |
 | Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
@@ -119,6 +119,11 @@ cargo run -- STAT.COM GAME.COM  # places host files on A: first, then boots
 
 Any files you pass are copied onto drive A: before boot, so `DIR` lists them and
 you can run a `.COM` by typing its name. (The disk is rebuilt fresh each run.)
+
+By default the console translates **ADM-3A** terminal codes to ANSI, so
+full-screen programs (Ladder, the Turbo Pascal editor) display correctly while
+plain text and modern `ESC[` sequences pass straight through. Add `--raw` to
+disable translation.
 
 ## Repository layout
 

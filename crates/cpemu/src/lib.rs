@@ -17,3 +17,4 @@ pub mod disk;
 pub mod executor;
 pub mod machine;
 pub mod memory;
+pub mod terminal;

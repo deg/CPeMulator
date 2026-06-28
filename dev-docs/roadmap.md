@@ -71,10 +71,12 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - [ ] CP/M directory + allocation tooling (place files on a disk)
 - [ ] Drive mapping / mounting (multiple drives)
 
-### [~] Console & terminal — `cpemu-7m4`
+### [x] Console & terminal — `cpemu-7m4`
 - [x] Console abstraction (`Console` trait; scripted console for headless/tests)
 - [x] Interactive raw-TTY terminal front end (`TerminalConsole`; `cargo run`)
-- [ ] Selectable ADM-3A/VT100 emulation
+- [x] ADM-3A → ANSI terminal emulation (`terminal.rs`) so full-screen apps
+  (Ladder, the Turbo editor) display; modern `ESC[` passes through; `--raw` opts
+  out
 
 ### [ ] Debugger / monitor — `cpemu-6o2`
 The interactive frontend: breakpoints, single-step, register/memory inspect+edit,
