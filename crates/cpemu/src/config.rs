@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The machine configuration — the seam between "our virtual machine" and a
 //! possible future real machine.
 //!

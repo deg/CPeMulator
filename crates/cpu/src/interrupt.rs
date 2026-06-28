@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! Interrupt delivery: maskable interrupts (modes 0, 1, 2) and the NMI.
 //!
 //! The CPU does not poll for interrupts itself — there is no interrupt *source*

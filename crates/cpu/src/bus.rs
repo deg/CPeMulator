@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The CPU's only contact with the outside world.
 //!
 //! The CPU is generic over a [`Bus`] implementation (monomorphized, not `dyn`)

@@ -232,7 +232,8 @@ If you want to understand or contribute to cpemu, read the developer docs:
 
 ## Licensing and third-party code
 
-The cpemu source is under the MIT license. The repository also vendors the
+The cpemu source is under the MIT license; see [`LICENSE`](LICENSE) for the
+full text. The repository also vendors the
 genuine Digital Research CP/M 2.2 CCP and BDOS source under
 [`third-party/cpm22/`](third-party/cpm22/); CP/M and its derivatives are
 redistributable under a grant from DRDOS Inc. (successor to Digital Research). See

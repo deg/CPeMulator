@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The executor: drives the CPU and services BIOS traps.
 //!
 //! The executor owns the three things a running CP/M system needs and that must

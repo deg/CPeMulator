@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! An interactive console: the host terminal as the CP/M console.
 //!
 //! CP/M expects a character-at-a-time serial terminal — no line buffering, and

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The `CB`-prefixed instructions: rotates, shifts, and single-bit
 //! `BIT`/`RES`/`SET` operations on the 8-bit registers and `(HL)`.
 //!

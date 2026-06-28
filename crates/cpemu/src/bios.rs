@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The HLE BIOS: the Rust side of every BIOS call, plus the cold/warm boot.
 //!
 //! This is the concrete [`BiosTrap`] the [`Executor`] calls when the CPU lands

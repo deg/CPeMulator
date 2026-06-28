@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The `ED`-prefixed instructions: 16-bit add/subtract with carry, direct
 //! 16-bit memory loads, `NEG`, `RETN`/`RETI`, interrupt-mode selection, the
 //! `I`/`R` register transfers, `RRD`/`RLD`, and the block move / compare /

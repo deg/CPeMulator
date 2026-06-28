@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The `DD` and `FD` prefixes: `IX`/`IY`-indexed instructions.
 //!
 //! A `DD` (or `FD`) prefix modifies the instruction that follows it: `HL`

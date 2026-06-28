@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 David Goldfarb <deg@degel.com>
+#
 # Boot cpemu with ALL the fetched software loaded onto drive A:.
 #
 # The default drive is now an 8 MB hard disk (the CP/M 2.2 maximum), which holds

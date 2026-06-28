@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! Virtual CP/M disks: a flat sector image plus the geometry CP/M needs.
 //!
 //! A [`DiskFormat`] captures everything BDOS needs to know about a drive — the

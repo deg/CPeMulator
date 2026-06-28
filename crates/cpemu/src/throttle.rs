@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! Speed throttle: pace emulation to a target CPU clock.
 //!
 //! The emulator executes instructions as fast as the host can, which is far

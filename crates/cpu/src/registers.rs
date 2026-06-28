@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The Z80 programmer-visible register file.
 //!
 //! Individual 8-bit registers with 16-bit pair accessors, the shadow register

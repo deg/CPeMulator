@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! CPU validation against the standard Z80 exercisers.
 //!
 //! The exercisers (`prelim`, `zexdoc`, `zexall`) are vintage CP/M `.COM`

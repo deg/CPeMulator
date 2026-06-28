@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! `cpemu` — the system layer of the CP/M emulator.
 //!
 //! This crate builds the virtual machine *around* the [`cpemu_cpu`] CPU core:

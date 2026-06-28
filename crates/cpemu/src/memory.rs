@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The system's 64 KB of RAM.
 //!
 //! CP/M 2.2 runs in a flat 64 KB address space with no memory management, so

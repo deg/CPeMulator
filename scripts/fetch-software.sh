@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 David Goldfarb <deg@degel.com>
+#
 # Fetch classic CP/M software into ./software/ for use with cpemu
 # (e.g. `cargo run -- software/MBASIC.COM`, or `scripts/load-all.sh`).
 #

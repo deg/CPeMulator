@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The virtual machine: memory and I/O presented to the CPU as a `Bus`.
 //!
 //! `Machine` is the bridge between the CPU core and the system. The CPU calls

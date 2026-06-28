@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! `cpemu-cpu` — the Z80/8080 CPU core for the cpemu CP/M emulator.
 //!
 //! The Z80 is implemented as a superset that also runs 8080 code. The core is

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! Arithmetic/logic operations and their flag effects.
 //!
 //! Flag computation is the part of a CPU core that exercisers are built to

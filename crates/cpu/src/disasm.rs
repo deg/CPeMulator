@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! A Z80 disassembler, shared with the monitor.
 //!
 //! [`disassemble`] decodes the single instruction at an address and returns its

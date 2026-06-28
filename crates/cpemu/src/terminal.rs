@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! Terminal translation: turn a CP/M program's terminal control codes into the
 //! ANSI sequences a modern terminal understands.
 //!

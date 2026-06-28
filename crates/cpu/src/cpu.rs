@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 David Goldfarb <deg@degel.com>
+
 //! The CPU itself: machine state and the fetch/decode/execute step.
 //!
 //! Decoding follows the standard Z80 opcode structure (see Cristian Dinu's
