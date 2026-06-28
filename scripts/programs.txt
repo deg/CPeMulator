@@ -55,6 +55,10 @@ PACMAN95
    A Pac-Man-style dungeon chase: eat the coins and grab a
    potion to zap the monsters hunting you.  Arcade speed - if
    it runs too fast, restart cpemu with  --mhz=2 .
+CATCHUM
+   A faithful Pac-Man clone (full-screen maze).  Menu: 1 for a
+   one-player game, L to change level, I for instructions.
+   Keys: A/Z up-down, comma/period left-right.  Try --mhz=2.
 STAR.BAS
    Star Trek.  Run:  MBASIC STAR.BAS
    Answer "list of commands?" with a CAPITAL Y or it silently
@@ -65,7 +69,7 @@ MORE BASIC GAMES
    MONOPLY, MONSTER, STARWARS, TVIGAMMO (backgammon), ZILCH
    (a dice game), WORDPUZL.  Most want CAPITAL-letter answers.
 
----------------- LANGUAGES -------------------------------------
+---------------- LANGUAGES & COMPILERS -------------------------
 
 MBASIC
    Microsoft BASIC.  Type lines (10 PRINT "HI"), then RUN.
@@ -75,6 +79,19 @@ TURBO
    Turbo Pascal 3.01a.  Answer N to "include error messages".
    You then get a menu (Edit, Compile, Run...).  The full-screen
    editor needs a good terminal; the menu and Compile/Run work.
+MULISP
+   muLISP-80, a Lisp interpreter (1980, The Soft Warehouse).
+   It greets you with a  $  prompt; type Lisp expressions there,
+   such as  (PLUS 2 3) .  Function names are spelled out (PLUS,
+   TIMES, DIFFERENCE).  Ctrl-C returns to CP/M.
+CC   (BDS C)
+   A real C compiler.  Build a program in three steps:
+     CC HELLO.C       compile  ->  HELLO.CRL
+     CLINK HELLO      link     ->  HELLO.COM
+     HELLO            run it
+   Put  #include <STDIO.H>  at the top for printf and friends.
+   Also on the disk if you want them: Microsoft FORTRAN-80 (F80)
+   and CBASIC (CB80), each compile-then-link like CC.
 
 ---------------- PRODUCTIVITY ----------------------------------
 

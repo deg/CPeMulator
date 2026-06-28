@@ -125,10 +125,10 @@ A>DBASE                 dBASE II  (QUIT to exit)
 A>MBASIC STAR.BAS       Star Trek  (answer questions with a CAPITAL Y)
 ```
 
-Included: the Zork trilogy, Colossal Cave Adventure, Sargon chess, Ladder,
-Microsoft BASIC, Turbo Pascal, dBASE II, Multiplan, and the standard CP/M
-utilities (STAT, PIP, ED, DDT, ASM …), plus a pile of BASIC games (`MBASIC
-<name>.BAS`).
+Included: the Zork trilogy and Enchanter, Colossal Cave Adventure, Sargon chess,
+Ladder, Catchum, Microsoft BASIC, Turbo Pascal, muLISP, the BDS C compiler,
+dBASE II, Multiplan, and the standard CP/M utilities (STAT, PIP, ED, DDT, ASM …),
+plus a pile of BASIC games (`MBASIC <name>.BAS`).
 
 You can also load specific files yourself — any arguments are copied onto drive
 A: before boot:
