@@ -50,6 +50,10 @@ pub struct Cpu {
     pub iff2: bool,
     /// Interrupt mode (0, 1, or 2).
     pub im: u8,
+    /// Set for one instruction after `EI`: a maskable interrupt is not accepted
+    /// in the shadow of `EI` (so the classic `EI; RET` returns before any
+    /// pending interrupt is taken). See [`Cpu::can_accept_interrupt`].
+    pub ei_delay: bool,
     /// Whether the CPU is halted, awaiting an interrupt.
     pub halted: bool,
     /// Total T-states executed since construction/reset.
@@ -64,6 +68,7 @@ impl Cpu {
             iff1: false,
             iff2: false,
             im: 0,
+            ei_delay: false,
             halted: false,
             cycles: 0,
         }
@@ -79,6 +84,7 @@ impl Cpu {
         self.iff1 = false;
         self.iff2 = false;
         self.im = 0;
+        self.ei_delay = false;
         self.halted = false;
     }
 
@@ -244,6 +250,11 @@ impl Cpu {
             self.regs.inc_r();
             return self.done(4, Stop::Halted);
         }
+
+        // The one-instruction `EI` shadow ends as this instruction begins; a
+        // machine samples interrupts before calling step(), so by clearing here
+        // the shadow covers exactly the single instruction after `EI`.
+        self.ei_delay = false;
 
         let opcode = self.fetch(bus);
         self.execute(opcode, bus)
@@ -572,12 +583,15 @@ impl Cpu {
                 // DI
                 self.iff1 = false;
                 self.iff2 = false;
+                self.ei_delay = false;
                 self.done(4, Stop::Normal)
             }
             _ => {
-                // EI
+                // EI — interrupts enabled, but not sampled until after the next
+                // instruction (the `ei_delay` shadow).
                 self.iff1 = true;
                 self.iff2 = true;
+                self.ei_delay = true;
                 self.done(4, Stop::Normal)
             }
         }

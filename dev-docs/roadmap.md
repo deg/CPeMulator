@@ -40,7 +40,8 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - ✅ 8080 base instruction set (the full unprefixed opcode map, Z80 flag semantics)
 - ✅ Z80 extensions — `CB` (bit/rotate/shift), `ED` (block ops, 16-bit ADC/SBC,
   `LD I/R`, `RRD`/`RLD`), `DD`/`FD` (`IX`/`IY` indexed, incl. `DD CB`)
-- ⬜ Interrupts — IM 0/1/2, `IFF` handling, IRQ/NMI delivery
+- ✅ Interrupts — maskable IM 0/1/2 + NMI delivery, `IFF1`/`IFF2`, and the
+  one-instruction `EI` shadow (the CPU mechanism; the machine drives it)
 - ⬜ Disassembler (shared with the monitor)
 - ✅ Exerciser harness — **zexdoc passes** (every documented-instruction group,
   ~31s in release). `prelim` runs in CI; `zexall` is one group short (the

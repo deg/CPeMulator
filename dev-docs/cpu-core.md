@@ -270,10 +270,13 @@ including the undocumented Y/X bits. **The CPU passes the `zexdoc` exerciser**
 (every documented-instruction group), which is the v1 correctness gate; see
 [development.md](development.md#validating-the-cpu) for how to run it.
 
-Not yet implemented: **interrupt handling** (IM 0/1/2 dispatch and IRQ/NMI
-delivery; `IM`/`EI`/`DI` state is tracked but no interrupt is delivered yet) and
-the **disassembler**. `Stop::Illegal` is now reachable only for genuinely
-undefined encodings.
+Interrupt **delivery** is implemented (`interrupt.rs`): `Cpu::interrupt` takes a
+maskable interrupt in modes 0/1/2, `Cpu::nmi` takes a non-maskable interrupt, and
+`Cpu::can_accept_interrupt` reports whether a maskable interrupt would be
+accepted (respecting `IFF1` and the one-instruction `EI` shadow). The CPU has no
+interrupt *source* of its own — the surrounding machine decides when to assert a
+line and calls these. Still to do: the **disassembler**. `Stop::Illegal` is now
+reachable only for genuinely undefined encodings.
 
 The one known correctness gap is the **WZ/MEMPTR register**: `zexall` (the
 undocumented-behavior exerciser) passes every group except `BIT n,(HL)`, whose
