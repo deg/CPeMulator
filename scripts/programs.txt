@@ -80,12 +80,13 @@ TURBO
    You then get a menu (Edit, Compile, Run...).  The full-screen
    editor needs a good terminal; the menu and Compile/Run work.
 MULISP
-   muLISP-80, a tiny early Lisp (1980, The Soft Warehouse) - the
-   ancestor of the muMATH/Derive engine.  At its  $  prompt type
-   Lisp, e.g.  (CONS (QUOTE A) (QUOTE B)) .  Arithmetic uses
-   spelled-out, TWO-argument names: (PLUS 2 3) is 5, (TIMES 2 3)
-   is 6, (QUOTIENT 22 7) is 3.  There is no (+ ...); an unknown
-   function just echoes back unevaluated.  Ctrl-C returns to CP/M.
+   muLISP-80, a tiny early Lisp (1980, The Soft Warehouse).  At
+   its  $  prompt type Lisp, e.g.  (CONS (QUOTE A) (QUOTE B)) .
+   Built-ins are CASE-SENSITIVE and UPPER-CASE - (PLUS 2 3) is 5
+   but (plus 2 3) is undefined.  Arithmetic is TWO-argument, so
+   (PLUS 1 2 3) is 3 (it adds the first two).  An unknown
+   function just echoes back, and there is no (+ ...).  Starting
+   cpemu --upper lets you type in lower case.  Ctrl-C exits.
 CC   (BDS C)
    A real C compiler.  Build a program in three steps:
      CC HELLO.C       compile  ->  HELLO.CRL
