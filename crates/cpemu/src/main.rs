@@ -51,6 +51,20 @@ SCRIPTS:
 
 Inside CP/M, type PROGRAMS.TXT (TYPE PROGRAMS.TXT) for a guide to what's loaded.";
 
+/// CP/M marks the end of a text file with `^Z` (0x1A). Tools that read to that
+/// marker treat a raw host file's trailing zero-padding as garbage — most sharply
+/// the CCP's SUBMIT mechanism, which then writes an empty `$$$.SUB` and chains
+/// nothing. Host binaries (`.COM`, `.DAT`, …) must stay byte-exact, so we only
+/// append `^Z` to `.SUB` batch files, which are always text and fail silently
+/// without it. (A `.SUB` authored in-world with `ED` is already terminated.)
+fn terminate_if_submit(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
+    const EOF: u8 = 0x1A;
+    if name.to_ascii_uppercase().ends_with(".SUB") && bytes.last() != Some(&EOF) {
+        bytes.push(EOF);
+    }
+    bytes
+}
+
 fn main() {
     // Flags: terminal/CPU options plus host files to place on drive A: before
     // booting. See HELP (or `--help`).
@@ -93,10 +107,13 @@ fn main() {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         match std::fs::read(path) {
-            Ok(bytes) => match disk.add_file(&name, &bytes) {
-                Ok(()) => println!("  loaded {} onto A: ({} bytes)", name, bytes.len()),
-                Err(e) => eprintln!("  cannot add {path}: {e:?}"),
-            },
+            Ok(bytes) => {
+                let bytes = terminate_if_submit(&name, bytes);
+                match disk.add_file(&name, &bytes) {
+                    Ok(()) => println!("  loaded {} onto A: ({} bytes)", name, bytes.len()),
+                    Err(e) => eprintln!("  cannot add {path}: {e:?}"),
+                }
+            }
             Err(e) => eprintln!("  cannot read {path}: {e}"),
         }
     }
@@ -145,4 +162,24 @@ fn main() {
 
     drop(exec); // restores cooked terminal mode
     println!("\r\ncpemu: {exit}.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::terminate_if_submit;
+
+    #[test]
+    fn submit_files_get_a_ctrl_z() {
+        // .SUB without ^Z gains one (so SUBMIT reads the commands, not padding).
+        assert_eq!(
+            terminate_if_submit("B.SUB", b"STAT\r\n".to_vec()),
+            b"STAT\r\n\x1a"
+        );
+        // Already terminated -> left unchanged (no double ^Z).
+        assert_eq!(terminate_if_submit("B.SUB", b"X\x1a".to_vec()), b"X\x1a");
+        // Match is case-insensitive on the extension.
+        assert_eq!(terminate_if_submit("b.sub", b"X".to_vec()), b"X\x1a");
+        // Non-.SUB files (e.g. a binary) are left byte-exact.
+        assert_eq!(terminate_if_submit("FOO.COM", vec![1, 2, 3]), vec![1, 2, 3]);
+    }
 }

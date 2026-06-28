@@ -108,6 +108,11 @@ impl<C: Console> CpmBios<C> {
         }
     }
 
+    /// The mounted drive-A disk, for inspection or saving back to an image.
+    pub fn disk(&self) -> &crate::disk::Disk {
+        &self.disk
+    }
+
     /// Address of the Disk Parameter Header (just above the jump table).
     fn dph_addr(&self) -> u16 {
         self.config.bios_base.wrapping_add(0x0100)
