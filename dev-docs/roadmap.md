@@ -38,8 +38,8 @@ The workspace, tooling, and groundwork.
 A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - ✅ CPU scaffolding — registers, flags, `Bus`, observable `StepResult`, T-states
 - ✅ 8080 base instruction set (the full unprefixed opcode map, Z80 flag semantics)
-- 🚧 Z80 extensions — `CB` (bit/rotate/shift), `ED` (block ops, 16-bit ADC/SBC,
-  `LD I/R`), `DD`/`FD` (`IX`/`IY` indexed). *The largest single task.*
+- ✅ Z80 extensions — `CB` (bit/rotate/shift), `ED` (block ops, 16-bit ADC/SBC,
+  `LD I/R`, `RRD`/`RLD`), `DD`/`FD` (`IX`/`IY` indexed, incl. `DD CB`)
 - ⬜ Interrupts — IM 0/1/2, `IFF` handling, IRQ/NMI delivery
 - ⬜ Disassembler (shared with the monitor)
 - ⬜ Exerciser harness — the real correctness gate (**zexdoc**); smoke suites.

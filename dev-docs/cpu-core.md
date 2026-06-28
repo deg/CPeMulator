@@ -17,8 +17,11 @@ this document is about what is *inside* it.
 | `lib.rs` | Crate root; declares the modules and re-exports the public API (`Cpu`, `Bus`, `PlainBus`, `Registers`, `flag`, `StepResult`, `Stop`). |
 | `registers.rs` | The register file: the 8-bit registers, 16-bit pairs, the shadow set, and flag bit definitions and helpers. |
 | `bus.rs` | The `Bus` trait (the CPU's only window to memory and I/O) and `PlainBus`, a simple 64 KB implementation for tests. |
-| `alu.rs` | Arithmetic/logic operations and — the hard part — their exact flag effects. |
-| `cpu.rs` | The `Cpu` state and the fetch/decode/execute step, including the structured opcode decode. |
+| `alu.rs` | Arithmetic/logic operations and — the hard part — their exact flag effects (8- and 16-bit). |
+| `cpu.rs` | The `Cpu` state, the fetch/decode/execute step, and the structured decode of the unprefixed opcode map. |
+| `cb.rs` | The `CB`-prefixed instructions: rotates, shifts, and `BIT`/`RES`/`SET`. |
+| `ed.rs` | The `ED`-prefixed instructions: 16-bit ADC/SBC, block moves/compares/I-O, `IM`, `RRD`/`RLD`, etc. |
+| `index.rs` | The `DD`/`FD` prefixes: `IX`/`IY`-indexed instructions, including `DD CB`/`FD CB`. |
 
 ## The register model
 
@@ -180,9 +183,32 @@ lookup tables:
   register, in eight lines.
 
 This structure also makes the prefix instructions tidy: the bytes `CB`, `DD`,
-`ED`, and `FD` fall into specific slots in the `x == 3` group, where they
-currently return `Stop::Illegal`. Implementing them (task `cpemu-yd5.3`) means
-filling in those slots with sub-decoders, not disturbing the main table.
+`ED`, and `FD` fall into specific slots in the `x == 3` group, each dispatching
+to its own sub-decoder (`cb.rs`, `ed.rs`, `index.rs`) without disturbing the main
+table.
+
+### The prefixes (`CB`, `ED`, `DD`/`FD`)
+
+Each prefix byte begins a second instruction byte that is itself an M1 fetch, so
+**`R` is incremented again** for the prefix's operation byte. Beyond that:
+
+- **`CB`** (`cb.rs`) is a clean sub-table: the operation byte's `x/y/z` select a
+  rotate/shift (`x==0`), or `BIT`/`RES`/`SET` of bit `y` (`x==1/2/3`) on `r[z]`.
+- **`ED`** (`ed.rs`) is a grab-bag: 16-bit `ADC`/`SBC HL,rr`, direct 16-bit
+  memory loads, `NEG`, `RETN`/`RETI`, `IM`, `LD I/R,A` and back, `RRD`/`RLD`, and
+  the block instructions. The repeating block instructions (`LDIR`, `CPIR`, …)
+  process **one element per `step`** and rewind `PC` by two to re-run, which is
+  how the real CPU stays interruptible mid-block. Undefined `ED` opcodes are
+  benign no-ops, matching hardware.
+- **`DD`/`FD`** (`index.rs`) are the subtle ones. They make the *next*
+  instruction use `IX`/`IY` in place of `HL` (and `IXH`/`IXL` for `H`/`L`, and
+  `(IX+d)`/`(IY+d)` for `(HL)`). The handler special-cases only the opcodes that
+  actually change and **delegates everything else** back to `execute()` — which
+  is exactly why `step` was split into fetch + `execute`. Two rules are easy to
+  get wrong and are handled explicitly: (1) when an instruction uses the
+  `(IX+d)` operand, its *other* register operand is the real `H`/`L`, not
+  `IXH`/`IXL`; and (2) for `DD CB d op` the displacement byte comes *before* the
+  operation byte.
 
 ## The ALU and flags (`alu.rs`)
 
@@ -238,7 +264,10 @@ A practical recipe, following the existing structure:
 
 ## Current state
 
-Implemented: the full **unprefixed** opcode map (the "8080 base" set) with Z80
-flag semantics. Not yet implemented (returns `Stop::Illegal`): the `CB`, `DD`,
-`ED`, `FD` prefixed instructions, and interrupt handling. See
-[roadmap.md](roadmap.md) for the task breakdown.
+Implemented: the **entire instruction set** — the unprefixed ("8080 base") map
+plus all four prefix groups (`CB`, `ED`, `DD`/`FD`) — with Z80 flag semantics
+including the undocumented Y/X bits. Not yet implemented: **interrupt handling**
+(IM 0/1/2 dispatch and IRQ/NMI delivery; `IM`/`EI`/`DI` state is tracked but no
+interrupt is delivered yet), the **disassembler**, and validation against the
+**exercisers** (the real correctness gate). `Stop::Illegal` is now reachable only
+for genuinely undefined encodings. See [roadmap.md](roadmap.md) for the breakdown.
