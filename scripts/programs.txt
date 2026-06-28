@@ -80,10 +80,12 @@ TURBO
    You then get a menu (Edit, Compile, Run...).  The full-screen
    editor needs a good terminal; the menu and Compile/Run work.
 MULISP
-   muLISP-80, a Lisp interpreter (1980, The Soft Warehouse).
-   It greets you with a  $  prompt; type Lisp expressions there,
-   such as  (PLUS 2 3) .  Function names are spelled out (PLUS,
-   TIMES, DIFFERENCE).  Ctrl-C returns to CP/M.
+   muLISP-80, a tiny early Lisp (1980, The Soft Warehouse) - the
+   ancestor of the muMATH/Derive engine.  At its  $  prompt type
+   Lisp, e.g.  (CONS (QUOTE A) (QUOTE B)) .  Arithmetic uses
+   spelled-out, TWO-argument names: (PLUS 2 3) is 5, (TIMES 2 3)
+   is 6, (QUOTIENT 22 7) is 3.  There is no (+ ...); an unknown
+   function just echoes back unevaluated.  Ctrl-C returns to CP/M.
 CC   (BDS C)
    A real C compiler.  Build a program in three steps:
      CC HELLO.C       compile  ->  HELLO.CRL
