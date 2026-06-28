@@ -11,6 +11,7 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod disk;
 pub mod executor;
 pub mod machine;
 pub mod memory;
