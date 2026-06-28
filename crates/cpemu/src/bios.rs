@@ -11,7 +11,7 @@
 //! fixes where everything lives.
 
 use crate::config::MachineConfig;
-use crate::disk::{DPB_8INCH, Disk, SECTOR_SIZE};
+use crate::disk::{Disk, SECTOR_SIZE};
 use crate::executor::{BiosTrap, Executor, TrapAction};
 use crate::machine::Machine;
 use crate::memory::Memory;
@@ -120,13 +120,15 @@ impl<C: Console> CpmBios<C> {
             mem.write16(addr + 1, addr);
         }
 
+        // The DPB and allocation-vector size come from the disk's own format,
+        // so the BIOS always advertises the geometry the disk was built with.
         let dph = self.dph_addr();
         let dpb = dph + 0x10;
-        let dirbuf = dph + 0x20;
+        let dirbuf = dph + 0x20; // 128 bytes -> dph+0xA0
         let alv = dph + 0xA0;
-        let csv = dph + 0xC0;
+        let csv = alv + self.disk.format().alloc_vector_len() as u16;
 
-        for (i, &b) in DPB_8INCH.iter().enumerate() {
+        for (i, &b) in self.disk.format().dpb.iter().enumerate() {
             mem.write(dpb + i as u16, b);
         }
         // Disk Parameter Header: XLT=0 (no skew), 3 scratch words, then the
@@ -404,5 +406,15 @@ mod tests {
             out.contains("HELLO"),
             "program did not run/print from disk:\n{out}"
         );
+    }
+
+    #[test]
+    fn runs_a_program_from_an_8mb_disk() {
+        // Boot the genuine CP/M on the 8 MB hard-disk format and run a program
+        // off it — proving BDOS agrees with the new DPB/geometry end to end.
+        let mut disk = Disk::make_system_disk_with(crate::disk::DiskFormat::hard_8mb(), CCP, BDOS);
+        disk.add_file("HELLO.COM", HELLO_COM).unwrap();
+        let out = boot_disk(disk, "HELLO\r");
+        assert!(out.contains("HELLO"), "8MB disk program run failed:\n{out}");
     }
 }

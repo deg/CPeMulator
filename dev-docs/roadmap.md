@@ -66,10 +66,12 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - [x] Disk BIOS calls (SELDSK→DPH/DPB, SETTRK/SETSEC/SETDMA/READ/WRITE/SECTRAN)
 
 ### [~] Disk subsystem — `cpemu-9br`
-- [x] Virtual disk abstraction (8" SSSD geometry, sectors, `DPB_8INCH`)
-- [ ] `.dsk` sector-image load/save (mount real images)
-- [ ] CP/M directory + allocation tooling (place files on a disk)
-- [ ] Drive mapping / mounting (multiple drives)
+- [x] Virtual disk abstraction (`DiskFormat`: 8" floppy + DPB)
+- [x] CP/M directory + allocation tooling (`add_file`, place files on a disk)
+- [x] 8 MB hard-disk format (16-bit allocation, the CP/M 2.2 drive maximum) — the
+  default drive; holds the whole software catalog
+- [ ] `.dsk` sector-image load/save (mount real images; persist a disk)
+- [ ] Drive mapping / mounting (multiple drives B:/C:/…)
 
 ### [x] Console & terminal — `cpemu-7m4`
 - [x] Console abstraction (`Console` trait; scripted console for headless/tests)
