@@ -130,6 +130,18 @@ full-screen programs (Ladder, the Turbo Pascal editor) display correctly while
 plain text and modern `ESC[` sequences pass straight through. Add `--raw` to
 disable translation.
 
+To boot with a full load-out of software on drive A: in one command:
+
+```bash
+./scripts/fetch-software.sh   # once, to download the programs
+./scripts/load-all.sh         # boots with the utilities + MBASIC + Turbo + Ladder + Zork I
+./scripts/load-all.sh --mhz=2 # flags are forwarded to the emulator
+```
+
+One 8" floppy holds ~241 KB and the fetched software totals ~460 KB (the three
+Zork data files alone are ~250 KB), so `load-all.sh` loads a curated set that
+fits. Multi-drive support and larger disks are future work.
+
 ## Repository layout
 
 ```
