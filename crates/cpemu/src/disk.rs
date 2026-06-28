@@ -21,6 +21,8 @@
 //! the BIOS reads the DPB from it.
 
 use std::collections::HashSet;
+use std::io;
+use std::path::{Path, PathBuf};
 
 /// Bytes per sector (the CP/M record size).
 pub const SECTOR_SIZE: usize = 128;
@@ -127,6 +129,20 @@ impl DiskFormat {
     pub fn total_sectors(&self) -> usize {
         self.system_tracks * self.sectors_per_track + self.block_count * self.sectors_per_block()
     }
+
+    /// Bytes in a full `.dsk` sector image of this format.
+    pub fn image_len(&self) -> usize {
+        self.total_sectors() * SECTOR_SIZE
+    }
+
+    /// The built-in format whose `.dsk` image is exactly `len` bytes, if any.
+    /// Used to pick a geometry when mounting an image by its file size.
+    pub fn for_image_size(len: usize) -> Option<DiskFormat> {
+        [Self::floppy_8inch(), Self::hard_8mb()]
+            .into_iter()
+            .find(|f| f.image_len() == len)
+    }
+
     /// Length of the allocation vector BDOS keeps (`(DSM / 8) + 1` bytes).
     pub fn alloc_vector_len(&self) -> usize {
         (self.block_count - 1) / 8 + 1
@@ -148,6 +164,8 @@ pub enum DiskError {
     DirectoryFull,
     /// No free data blocks remain.
     DiskFull,
+    /// A `.dsk` image's length does not match the geometry it was loaded as.
+    BadImageSize { got: usize, want: usize },
 }
 
 /// A CP/M disk: a flat sector image plus the format describing it.
@@ -188,6 +206,62 @@ impl Disk {
     /// This disk's format.
     pub fn format(&self) -> &DiskFormat {
         &self.format
+    }
+
+    /// The raw `.dsk` sector image: every 128-byte logical sector in
+    /// (track, sector) order. This is exactly the byte stream [`save_image`]
+    /// writes and [`from_image`] reads back.
+    ///
+    /// [`save_image`]: Disk::save_image
+    /// [`from_image`]: Disk::from_image
+    pub fn image(&self) -> &[u8] {
+        &self.data
+    }
+
+    /// Build a disk from a raw `.dsk` sector image. The image is a flat dump of
+    /// logical sectors (as [`image`] returns) and its length must match
+    /// `format` exactly — there is no header to infer geometry from.
+    ///
+    /// [`image`]: Disk::image
+    pub fn from_image(format: DiskFormat, bytes: Vec<u8>) -> Result<Self, DiskError> {
+        let want = format.image_len();
+        if bytes.len() != want {
+            return Err(DiskError::BadImageSize {
+                got: bytes.len(),
+                want,
+            });
+        }
+        Ok(Self {
+            data: bytes,
+            format,
+        })
+    }
+
+    /// Read a `.dsk` image from `path`, choosing the geometry from its size.
+    /// Fails if the size matches no built-in format.
+    pub fn load_image(path: &Path) -> io::Result<Self> {
+        let bytes = std::fs::read(path)?;
+        let format = DiskFormat::for_image_size(bytes.len()).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "{}: {} bytes is not a known cpemu disk image \
+                     ({} = 8\" floppy, {} = 8 MB hard disk)",
+                    path.display(),
+                    bytes.len(),
+                    DiskFormat::floppy_8inch().image_len(),
+                    DiskFormat::hard_8mb().image_len(),
+                ),
+            )
+        })?;
+        // for_image_size already guarantees the length matches, so this is infallible.
+        Self::from_image(format, bytes)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("{e:?}")))
+    }
+
+    /// Write this disk as a raw `.dsk` image to `path`, atomically.
+    pub fn save_image(&self, path: &Path) -> io::Result<()> {
+        write_image(path, &self.data)
     }
 
     /// Byte offset of a physical (track, sector).
@@ -377,6 +451,18 @@ impl Disk {
     }
 }
 
+/// Write a raw `.dsk` image to `path` atomically: the bytes go to a sibling
+/// temp file which is then renamed over `path`. A crash or interrupt mid-write
+/// leaves the original image intact rather than truncating it — important once
+/// the image holds work done inside CP/M.
+pub fn write_image(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, path)
+}
+
 /// Parse an `8.3` filename into space-padded name and extension fields.
 fn parse_filename(filename: &str) -> Result<([u8; 8], [u8; 3]), DiskError> {
     let upper = filename.trim().to_ascii_uppercase();
@@ -446,6 +532,62 @@ mod tests {
         let mut d = Disk::blank();
         d.add_file("hello.com", &[1, 2, 3]).unwrap();
         assert_eq!(d.list_files(), vec!["HELLO.COM"]);
+    }
+
+    #[test]
+    fn image_round_trips_in_memory() {
+        let mut d = Disk::blank_with(DiskFormat::hard_8mb());
+        d.add_file("HI.TXT", b"hello").unwrap();
+        let bytes = d.image().to_vec();
+        assert_eq!(bytes.len(), DiskFormat::hard_8mb().image_len());
+        let back = Disk::from_image(DiskFormat::hard_8mb(), bytes.clone()).unwrap();
+        assert_eq!(back.image(), &bytes[..]);
+        assert_eq!(back.list_files(), vec!["HI.TXT"]);
+    }
+
+    #[test]
+    fn from_image_rejects_wrong_size() {
+        assert!(matches!(
+            Disk::from_image(DiskFormat::floppy_8inch(), vec![0u8; 10]),
+            Err(DiskError::BadImageSize { got: 10, .. })
+        ));
+    }
+
+    #[test]
+    fn format_detected_by_image_size() {
+        assert_eq!(
+            DiskFormat::for_image_size(DiskFormat::floppy_8inch().image_len())
+                .unwrap()
+                .sectors_per_track,
+            26
+        );
+        assert_eq!(
+            DiskFormat::for_image_size(DiskFormat::hard_8mb().image_len())
+                .unwrap()
+                .sectors_per_track,
+            64
+        );
+        assert!(DiskFormat::for_image_size(123).is_none());
+    }
+
+    #[test]
+    fn save_then_load_preserves_files() {
+        // The persistence guarantee: a file written to a disk survives a
+        // save-image / load-image round trip through a real file.
+        let mut d =
+            Disk::make_system_disk_with(DiskFormat::floppy_8inch(), &[0xC3, 0, 0], &[0xC3, 0, 0]);
+        d.add_file("PERSIST.TXT", b"survives a round trip\r\n\x1a")
+            .unwrap();
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("cpemu-dsk-test-{}.dsk", std::process::id()));
+        d.save_image(&path).unwrap();
+        let loaded = Disk::load_image(&path).unwrap();
+        let _ = std::fs::remove_file(&path); // clean up before asserting
+
+        assert_eq!(loaded.list_files(), vec!["PERSIST.TXT"]);
+        assert_eq!(loaded.image(), d.image());
+        assert_eq!(loaded.format().sectors_per_track, 26); // detected as floppy
     }
 
     #[test]
