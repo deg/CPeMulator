@@ -5,51 +5,93 @@
 Run a program by typing its name at the A> prompt.  BASIC games
 (names ending in .BAS) are run with:   MBASIC NAME.BAS
 
-Leaving a program:
-  - Most have their own quit command (noted below).
+GETTING OUT
+  - Each program has its own way to quit (noted below).
   - Ctrl-C returns to A> when the program cooperates.
   - In MBASIC, type  SYSTEM
-  - To quit the emulator entirely, press  Ctrl-\
+  - Quit the whole emulator at any time: Ctrl-\
 
-Reading long output: Ctrl-S pauses, Ctrl-Q resumes.
-Tip: some old programs only accept CAPITAL letters.  Start cpemu
-with  --upper , or just hold Shift.
+HANDY KEYS
+  - Ctrl-S pauses scrolling output; Ctrl-Q (or any key) resumes.
+  - Backspace erases; Ctrl-U kills the line; Ctrl-R retypes it.
+
+GOTCHAS (these surprise everyone)
+  - Many tools NEED A FILENAME: ED, PIP, ASM, DUMP, LOAD.  Run
+    with no name and you get a confusing error.  ED with no file
+    even says "DISK OR DIRECTORY FULL" - the disk is fine; ED
+    just could not make a work file.  Use  ED FILENAME .
+  - Many old programs only accept CAPITAL letters.  Answer their
+    Y/N questions with a capital Y or N - or start cpemu --upper.
+  - Full-screen programs (WordStar, SuperCalc, the Turbo editor)
+    expect a specific terminal.  cpemu emulates an ADM-3A, which
+    most are happy with; a few need an INSTALL step first.
+  - Action games run at CPU speed.  Too fast?  Restart cpemu
+    with  --mhz=2  (or even --mhz=1).
 
 ---------------- GAMES & ADVENTURES ----------------------------
 
-ZORK1  ZORK2  ZORK3  Infocom's legendary text adventures.  Try
-                     OPEN MAILBOX, READ LEAFLET, GO NORTH, ...
-ADVENTUR             Colossal Cave Adventure - the original.
-SARGON               Sargon - play a full game of chess.
-LADDER               Arcade platformer (try --mhz=2 if too fast).
-STAR.BAS             Star Trek.  Run:  MBASIC STAR.BAS
-                     (answer the questions with a CAPITAL Y).
-... and many more .BAS games - run them with  MBASIC <name>.BAS
+ZORK1  ZORK2  ZORK3
+   Infocom text adventures.  Type plain English: OPEN MAILBOX,
+   READ LEAFLET, GO NORTH, TAKE LAMP.  SAVE and RESTORE work.
+   QUIT to leave (it asks you to confirm).
+ADVENTUR
+   Colossal Cave Adventure.  Answer its opening question to
+   start, then explore: GO NORTH, GET LAMP, ENTER, ...
+SARGON
+   Chess.  Answer the setup questions with a CAPITAL Y or N.
+   Enter moves as coordinates, e.g.  E2E4 .
+LADDER
+   Arcade climbing game.  Likely TOO FAST - restart --mhz=2.
+   Keys: A up, Z down, comma left, period right, Space jump.
+STAR.BAS
+   Star Trek.  Run:  MBASIC STAR.BAS
+   Answer "list of commands?" with a CAPITAL Y or it silently
+   skips the list.  Commands are numbers (e.g. 4 = fire torpedo).
 
 ---------------- LANGUAGES -------------------------------------
 
-MBASIC               Microsoft BASIC-80.  Write and RUN programs.
-                     Exit with the  SYSTEM  command.
-TURBO                Borland Turbo Pascal 3.01a - edit, compile,
-                     and run Pascal.
+MBASIC
+   Microsoft BASIC.  Type lines (10 PRINT "HI"), then RUN.
+   Ctrl-C stops a running program (back to the Ok prompt);
+   LIST shows it, RUN restarts, SYSTEM exits to A>.
+TURBO
+   Turbo Pascal 3.01a.  Answer N to "include error messages".
+   You then get a menu (Edit, Compile, Run...).  The full-screen
+   editor needs a good terminal; the menu and Compile/Run work.
 
 ---------------- PRODUCTIVITY ----------------------------------
 
-DBASE                dBASE II - the classic database.  Quit with
-                     the  QUIT  command.
-MP                   Microsoft Multiplan - a spreadsheet.
-SC                   SuperCalc spreadsheet (needs INSTALL first).
-WS                   WordStar word processor (needs WINSTALL).
+DBASE
+   dBASE II database.  It asks for today's date - press Return to
+   skip.  You get a  .  prompt; try  ? "HELLO" .  Leave with the
+   QUIT command (don't just Ctrl-C, or you may lose data).
+MP
+   Microsoft Multiplan, a spreadsheet.  Full-screen; it drives an
+   ADM-3A so it should display.  Commands are the menu along the
+   bottom - Quit from there.
+SC
+   SuperCalc spreadsheet.  Needs INSTALL run first to set up a
+   terminal; it may not start otherwise.
+WS
+   WordStar word processor.  Full-screen; run WINSTALL once to
+   set it up for a terminal.  Commands are Ctrl-key combos;
+   ^KX saves and exits, ^KQ quits without saving.
 
----------------- UTILITIES -------------------------------------
+---------------- UTILITIES (most take a FILENAME) --------------
 
-DIR                  List the files on a drive (built into CP/M).
-STAT                 Disk and file status; free space.
-PIP                  Copy files, e.g.  PIP NEW.TXT=OLD.TXT
-ED                   A line-oriented text editor.
-TYPE FILE            Show a text file (e.g. TYPE PROGRAMS.TXT).
-DDT                  The CP/M debugger.   ASM - 8080 assembler.
-DUMP FILE            Hex-dump a file.
+DIR              List files (built in).  e.g.  DIR *.COM
+STAT             Free space and file sizes.  STAT *.*
+TYPE FILE        Show a text file.  e.g.  TYPE PROGRAMS.TXT
+ED FILE          Edit a file - NEEDS a filename.  Inside ED:
+                 I = insert (type lines), ^Z = stop inserting,
+                 E = save and exit.
+PIP NEW=OLD      Copy a file.  e.g.  PIP B:=A:FOO.TXT
+ERA FILE         Erase files (built in).  e.g.  ERA *.BAK
+REN NEW=OLD      Rename a file (built in).
+DDT FILE         Debugger.  Type  G0  to exit to A>.
+ASM FILE         8080 assembler (expects FILE.ASM).
+DUMP FILE        Hex-dump a file.
+SAVE n FILE      Save n 256-byte pages of memory to a file.
 
 ================================================================
   Built with cpemu, a from-scratch Z80 CP/M emulator in Rust.
