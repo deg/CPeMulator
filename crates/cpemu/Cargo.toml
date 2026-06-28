@@ -11,5 +11,8 @@ authors.workspace = true
 name = "cpemu"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 cpemu-cpu = { workspace = true }

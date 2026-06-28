@@ -28,3 +28,8 @@ repository = ""
 # or ranges.
 [workspace.dependencies]
 cpemu-cpu = { path = "crates/cpu" }
+
+# Shared lints, opted into by each crate via `[lints] workspace = true`.
+# CI enforces these as errors (`cargo clippy -- -D warnings`); locally they warn.
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
