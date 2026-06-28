@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bios;
 pub mod config;
 pub mod disk;
 pub mod executor;
