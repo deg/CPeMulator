@@ -616,6 +616,25 @@ mod tests {
     }
 
     #[test]
+    fn monitor_breakpoint_stops_genuine_cpm_at_bdos_entry() {
+        // The execution-control core (cpemu-6o2.1) driving the real CCP/BDOS: a
+        // breakpoint at the BDOS entry must halt the machine there, since the CCP
+        // calls BDOS almost immediately (to reset disks and print the prompt).
+        use crate::monitor::{Monitor, StopReason};
+        let cfg = MachineConfig::virtual_default();
+        let exec = cold_boot(
+            cfg,
+            Disk::make_system_disk(CCP, BDOS),
+            ScriptedConsole::with_input("\r"),
+        );
+        let mut mon = Monitor::new(exec);
+        let bdos = cfg.bdos_entry();
+        mon.add_breakpoint(bdos);
+        assert_eq!(mon.run(50_000_000), StopReason::Breakpoint(bdos));
+        assert_eq!(mon.pc(), bdos, "stopped exactly at the BDOS entry");
+    }
+
+    #[test]
     fn runs_a_program_from_an_8mb_disk() {
         // Boot the genuine CP/M on the 8 MB hard-disk format and run a program
         // off it — proving BDOS agrees with the new DPB/geometry end to end.
