@@ -85,7 +85,7 @@ impl Cpu {
 
     /// Fetch the opcode byte at `PC` (an M1 cycle): advance `PC` and tick the
     /// refresh register.
-    fn fetch(&mut self, bus: &mut impl Bus) -> u8 {
+    pub(crate) fn fetch(&mut self, bus: &mut impl Bus) -> u8 {
         let opcode = bus.read(self.regs.pc);
         self.regs.pc = self.regs.pc.wrapping_add(1);
         self.regs.inc_r();
@@ -94,20 +94,20 @@ impl Cpu {
 
     /// Read an operand byte at `PC` and advance `PC`. Operand fetches are not
     /// M1 cycles, so they do **not** tick the refresh register.
-    fn next_byte(&mut self, bus: &mut impl Bus) -> u8 {
+    pub(crate) fn next_byte(&mut self, bus: &mut impl Bus) -> u8 {
         let v = bus.read(self.regs.pc);
         self.regs.pc = self.regs.pc.wrapping_add(1);
         v
     }
 
     /// Read a little-endian operand word at `PC` and advance `PC` by two.
-    fn next_word(&mut self, bus: &mut impl Bus) -> u16 {
+    pub(crate) fn next_word(&mut self, bus: &mut impl Bus) -> u16 {
         let lo = self.next_byte(bus);
         let hi = self.next_byte(bus);
         u16::from(lo) | (u16::from(hi) << 8)
     }
 
-    fn done(&mut self, cycles: u32, stop: Stop) -> StepResult {
+    pub(crate) fn done(&mut self, cycles: u32, stop: Stop) -> StepResult {
         self.cycles += u64::from(cycles);
         StepResult { cycles, stop }
     }
@@ -115,7 +115,7 @@ impl Cpu {
     // --- register-table access ------------------------------------------
 
     /// Read `r[idx]` (0=B,1=C,2=D,3=E,4=H,5=L,6=(HL),7=A).
-    fn reg_get(&mut self, idx: u8, bus: &mut impl Bus) -> u8 {
+    pub(crate) fn reg_get(&mut self, idx: u8, bus: &mut impl Bus) -> u8 {
         match idx {
             0 => self.regs.b,
             1 => self.regs.c,
@@ -129,7 +129,7 @@ impl Cpu {
     }
 
     /// Write `r[idx]`.
-    fn reg_set(&mut self, idx: u8, val: u8, bus: &mut impl Bus) {
+    pub(crate) fn reg_set(&mut self, idx: u8, val: u8, bus: &mut impl Bus) {
         match idx {
             0 => self.regs.b = val,
             1 => self.regs.c = val,
@@ -143,7 +143,7 @@ impl Cpu {
     }
 
     /// Read `rp[idx]` (0=BC,1=DE,2=HL,3=SP).
-    fn rp_get(&self, idx: u8) -> u16 {
+    pub(crate) fn rp_get(&self, idx: u8) -> u16 {
         match idx {
             0 => self.regs.bc(),
             1 => self.regs.de(),
@@ -153,7 +153,7 @@ impl Cpu {
     }
 
     /// Write `rp[idx]`.
-    fn rp_set(&mut self, idx: u8, val: u16) {
+    pub(crate) fn rp_set(&mut self, idx: u8, val: u16) {
         match idx {
             0 => self.regs.set_bc(val),
             1 => self.regs.set_de(val),
@@ -163,7 +163,7 @@ impl Cpu {
     }
 
     /// Read `rp2[idx]` (0=BC,1=DE,2=HL,3=AF), used by PUSH/POP.
-    fn rp2_get(&self, idx: u8) -> u16 {
+    pub(crate) fn rp2_get(&self, idx: u8) -> u16 {
         match idx {
             0 => self.regs.bc(),
             1 => self.regs.de(),
@@ -173,7 +173,7 @@ impl Cpu {
     }
 
     /// Write `rp2[idx]`.
-    fn rp2_set(&mut self, idx: u8, val: u16) {
+    pub(crate) fn rp2_set(&mut self, idx: u8, val: u16) {
         match idx {
             0 => self.regs.set_bc(val),
             1 => self.regs.set_de(val),
@@ -183,7 +183,7 @@ impl Cpu {
     }
 
     /// Evaluate condition `cc[idx]` (NZ,Z,NC,C,PO,PE,P,M).
-    fn cond(&self, idx: u8) -> bool {
+    pub(crate) fn cond(&self, idx: u8) -> bool {
         match idx {
             0 => !self.regs.flag(flag::Z),
             1 => self.regs.flag(flag::Z),
@@ -198,14 +198,14 @@ impl Cpu {
 
     // --- stack / control-flow helpers -----------------------------------
 
-    fn push16(&mut self, bus: &mut impl Bus, val: u16) {
+    pub(crate) fn push16(&mut self, bus: &mut impl Bus, val: u16) {
         self.regs.sp = self.regs.sp.wrapping_sub(1);
         bus.write(self.regs.sp, (val >> 8) as u8);
         self.regs.sp = self.regs.sp.wrapping_sub(1);
         bus.write(self.regs.sp, val as u8);
     }
 
-    fn pop16(&mut self, bus: &mut impl Bus) -> u16 {
+    pub(crate) fn pop16(&mut self, bus: &mut impl Bus) -> u16 {
         let lo = bus.read(self.regs.sp);
         self.regs.sp = self.regs.sp.wrapping_add(1);
         let hi = bus.read(self.regs.sp);
@@ -214,12 +214,12 @@ impl Cpu {
     }
 
     /// Relative jump: `PC += d` (signed).
-    fn jr(&mut self, d: u8) {
+    pub(crate) fn jr(&mut self, d: u8) {
         self.regs.pc = self.regs.pc.wrapping_add((d as i8) as u16);
     }
 
     /// Dispatch the `alu[op]` operation on the accumulator with `val`.
-    fn alu(&mut self, op: u8, val: u8) {
+    pub(crate) fn alu(&mut self, op: u8, val: u8) {
         match op {
             0 => self.regs.a = self.add8(self.regs.a, val, false), // ADD
             1 => self.regs.a = self.add8(self.regs.a, val, self.regs.flag(flag::C)), // ADC
@@ -534,7 +534,7 @@ impl Cpu {
                 self.regs.pc = nn;
                 self.done(10, Stop::Normal)
             }
-            1 => self.done(4, Stop::Illegal(0xCB)), // CB prefix (yd5.3)
+            1 => self.exec_cb(bus), // CB-prefixed bit/rotate/shift ops
             2 => {
                 // OUT (n),A — address bus: A on high byte, n on low byte.
                 let n = self.next_byte(bus);

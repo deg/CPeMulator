@@ -12,6 +12,7 @@
 
 mod alu;
 mod bus;
+mod cb;
 mod cpu;
 mod registers;
 
