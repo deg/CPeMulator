@@ -15,6 +15,7 @@ mod bus;
 mod cb;
 mod cpu;
 mod ed;
+mod index;
 mod registers;
 
 pub use bus::{Bus, PlainBus};

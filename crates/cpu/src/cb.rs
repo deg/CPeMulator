@@ -17,7 +17,7 @@ impl Cpu {
     /// One of the eight rotate/shift operations selected by `op` (0..7:
     /// RLC, RRC, RL, RR, SLA, SRA, SLL, SRL), returning the result and setting
     /// flags. `SLL` (op 6) is the undocumented "shift left, set bit 0".
-    fn cb_rotate(&mut self, op: u8, v: u8) -> u8 {
+    pub(crate) fn cb_rotate(&mut self, op: u8, v: u8) -> u8 {
         let old_c = self.regs.flag(flag::C);
         let (res, carry) = match op {
             0 => (v.rotate_left(1), v & 0x80 != 0),           // RLC
@@ -45,18 +45,28 @@ impl Cpu {
     }
 
     /// `BIT n, v` — test bit `n` of `v` and set flags (the value is unchanged).
+    /// The undocumented Y/X come from the tested value itself.
+    fn cb_bit(&mut self, n: u8, v: u8) {
+        self.cb_bit_with_yx(n, v, v);
+    }
+
+    /// `BIT n, v` with the undocumented Y/X flags sourced separately. For
+    /// `BIT n,(HL)` and the `DD CB`/`FD CB` `(IX+d)`/`(IY+d)` forms, Y/X come not
+    /// from the tested byte but from the high byte of the internal address
+    /// (`yx_src`), which is why this is split out.
+    ///
     /// Z (and the parity bit, which mirrors Z here) reflect whether the bit is
     /// clear; H is set, N cleared, carry untouched. S is set only when testing
-    /// bit 7 and it is set. The undocumented Y/X come from the tested value.
-    fn cb_bit(&mut self, n: u8, v: u8) {
+    /// bit 7 and it is set.
+    pub(crate) fn cb_bit_with_yx(&mut self, n: u8, v: u8, yx_src: u8) {
         let bit_set = v & (1 << n) != 0;
         self.regs.set_flag(flag::Z, !bit_set);
         self.regs.set_flag(flag::PV, !bit_set);
         self.regs.set_flag(flag::H, true);
         self.regs.set_flag(flag::N, false);
         self.regs.set_flag(flag::S, n == 7 && bit_set);
-        self.regs.set_flag(flag::Y, v & flag::Y != 0);
-        self.regs.set_flag(flag::X, v & flag::X != 0);
+        self.regs.set_flag(flag::Y, yx_src & flag::Y != 0);
+        self.regs.set_flag(flag::X, yx_src & flag::X != 0);
     }
 
     /// Execute a `CB`-prefixed instruction. The `CB` byte has already been

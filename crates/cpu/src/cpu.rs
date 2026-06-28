@@ -11,6 +11,7 @@
 //! [`Stop::Illegal`] until the Z80-extensions task (`cpemu-yd5.3`).
 
 use crate::bus::Bus;
+use crate::index::Index;
 use crate::registers::{Registers, flag};
 
 /// Index of the `(HL)` pseudo-register in the `r[]` table.
@@ -245,6 +246,13 @@ impl Cpu {
         }
 
         let opcode = self.fetch(bus);
+        self.execute(opcode, bus)
+    }
+
+    /// Decode and execute a single already-fetched opcode. Split out from
+    /// [`Cpu::step`] so the `DD`/`FD` index handler can delegate any opcode it
+    /// does not need to treat specially straight back to the normal decode.
+    pub(crate) fn execute(&mut self, opcode: u8, bus: &mut impl Bus) -> StepResult {
         let x = opcode >> 6;
         let y = (opcode >> 3) & 7;
         let z = opcode & 7;
@@ -260,7 +268,7 @@ impl Cpu {
                 self.alu(y, v);
                 self.done(if z == HL_MEM { 7 } else { 4 }, Stop::Normal)
             }
-            _ => self.exec_x3(bus, opcode, y, z, p, q),
+            _ => self.exec_x3(bus, y, z, p, q),
         }
     }
 
@@ -425,16 +433,8 @@ impl Cpu {
     }
 
     /// `x = 3`: returns, stack ops, jumps, calls, I/O, immediate ALU, RST, and
-    /// the prefix bytes (not yet implemented).
-    fn exec_x3(
-        &mut self,
-        bus: &mut impl Bus,
-        opcode: u8,
-        y: u8,
-        z: u8,
-        p: u8,
-        q: u8,
-    ) -> StepResult {
+    /// the `CB`/`DD`/`ED`/`FD` prefix entry points.
+    fn exec_x3(&mut self, bus: &mut impl Bus, y: u8, z: u8, p: u8, q: u8) -> StepResult {
         match z {
             0 => {
                 // RET cc[y]
@@ -508,9 +508,9 @@ impl Cpu {
                     self.done(17, Stop::Normal)
                 } else {
                     match p {
-                        2 => self.exec_ed(bus), // ED-prefixed extended ops
-                        // DD (p==1) / FD (p==3) index prefixes — implemented next.
-                        _ => self.done(4, Stop::Illegal(opcode)),
+                        1 => self.exec_index(bus, Index::Ix), // DD: IX-indexed
+                        2 => self.exec_ed(bus),               // ED-prefixed extended ops
+                        _ => self.exec_index(bus, Index::Iy), // FD: IY-indexed
                     }
                 }
             }
@@ -639,13 +639,17 @@ mod tests {
     }
 
     #[test]
-    fn index_prefixes_still_illegal() {
-        // CB and ED are implemented; the DD/FD index prefixes are not yet.
-        for prefix in [0xDD, 0xFD] {
+    fn all_prefixes_are_handled() {
+        // Every prefix (CB, DD, ED, FD) now decodes rather than reporting an
+        // illegal opcode. A bare prefix followed by NOP must execute normally.
+        for prefix in [0xCB, 0xDD, 0xED, 0xFD] {
             let mut cpu = Cpu::new();
             let mut bus = PlainBus::new();
-            bus.load(0x0000, &[prefix]);
-            assert_eq!(cpu.step(&mut bus).stop, Stop::Illegal(prefix));
+            bus.load(0x0000, &[prefix, 0x00]);
+            assert!(
+                !matches!(cpu.step(&mut bus).stop, Stop::Illegal(_)),
+                "prefix {prefix:#04x} reported illegal"
+            );
         }
     }
 
