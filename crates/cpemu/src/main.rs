@@ -230,12 +230,22 @@ fn load_config(explicit: Option<&str>) -> Option<String> {
     }
 }
 
-/// A fixed-mix Z80 micro-benchmark: run a representative instruction loop on a
-/// throwaway CPU for `budget` of wall time and return the emulation rate in MHz.
-/// The instruction mix is fixed, so the figure is reproducible and comparable
-/// across runs, builds, and hosts — unlike the workload-dependent `--fast`
-/// number. It measures the host's raw Z80 throughput, with no console/disk I/O.
+/// A fixed-mix Z80 micro-benchmark: how fast this host *can* emulate the Z80, in
+/// MHz. The instruction mix is fixed, so the figure is comparable across runs,
+/// builds, and hosts — unlike the workload-dependent `--fast` number. It measures
+/// raw throughput with no console/disk I/O, and reports the **best** of several
+/// short samples so a moment of system load (or the OS scheduler) deflates it
+/// less — we want the host's capacity, not a busy instant. `budget` is the total
+/// time across all samples.
 fn benchmark_mhz(config: &MachineConfig, budget: Duration) -> f64 {
+    const SAMPLES: u32 = 5;
+    (0..SAMPLES)
+        .map(|_| bench_sample(config, budget / SAMPLES))
+        .fold(0.0, f64::max)
+}
+
+/// One timed run of the benchmark loop, returning the rate in MHz.
+fn bench_sample(config: &MachineConfig, budget: Duration) -> f64 {
     // A loop mixing immediate/register/memory loads, 8- and 16-bit ALU, a rotate,
     // and a CALL/RET, then JP back to the top. It resets SP/HL each pass and only
     // ever writes to scratch RAM at 0x4000, so it runs forever without escaping.
@@ -382,14 +392,26 @@ fn main() {
         }
     );
 
-    // A quick fixed-mix benchmark of raw Z80 throughput on this host, so you can
-    // see the headroom before the prompt. Reproducible (unlike the workload-
-    // dependent --fast figure).
-    let bench = benchmark_mhz(&machine, Duration::from_millis(50));
-    println!(
-        "Host emulates the Z80 at ~{bench:.0} MHz (~{:.0}x a {mhz} MHz Z80)\n",
-        bench / mhz
-    );
+    // A quick fixed-mix benchmark of how fast this host *can* emulate the Z80 —
+    // its capacity, distinct from the speed you're running at (the line above).
+    // Lets you see the headroom over your clock before the prompt.
+    let host_mhz = benchmark_mhz(&machine, Duration::from_millis(60));
+    let factor = host_mhz / mhz;
+    let fx = if factor >= 10.0 {
+        format!("{factor:.0}")
+    } else {
+        format!("{factor:.1}")
+    };
+    if !throttled {
+        println!("Host can emulate ~{host_mhz:.0} MHz of Z80 (~{fx}x a {mhz} MHz Z80)\n");
+    } else if factor >= 1.0 {
+        println!("Host can emulate ~{host_mhz:.0} MHz of Z80 — ~{fx}x headroom at {mhz} MHz\n");
+    } else {
+        println!(
+            "Host can emulate only ~{host_mhz:.0} MHz of Z80, below your {mhz} MHz \
+             clock — it may not keep real time\n"
+        );
+    }
 
     // Check the mounted drives' BIOS structures fit above the jump table before
     // touching the terminal, so the error prints in cooked mode.
