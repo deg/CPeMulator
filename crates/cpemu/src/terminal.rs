@@ -13,11 +13,12 @@
 //!
 //! [`Terminal`] is a small state machine that rewrites those codes. The default
 //! [`TerminalMode::Adm3a`] handles the Lear-Siegler **ADM-3A** (the de-facto
-//! CP/M standard, and what the "Microbee" terminal our fetched software targets
-//! is compatible with): `ESC = row col` cursor addressing, `^Z` clear-screen,
-//! `^^` home, and the `ESC T`/`ESC Y` clear-to-end codes. Anything it does not
-//! recognize — including modern `ESC [` (CSI) sequences from a VT100/ANSI
-//! program — is passed through untouched, so this mode is a safe superset.
+//! CP/M standard): `ESC = row col` cursor addressing, `^Z` clear-screen, `^^`
+//! home, and the `ESC T`/`ESC Y` clear-to-end codes. It also translates the
+//! **Microbee VDU**'s highlight pair (`ESC (` / `ESC )`), since much of our
+//! fetched software is Microbee-configured and the Microbee shares the ADM-3A's
+//! cursor/clear codes. Anything it does not recognize — including modern `ESC [`
+//! (CSI) sequences from a VT100/ANSI program — is passed through untouched.
 //! [`TerminalMode::Raw`] passes everything through unchanged.
 
 /// Which terminal the guest software is driving.
@@ -92,6 +93,13 @@ impl Terminal {
             b'T' => push_str(out, "\x1b[K"), // clear to end of line
             b'Y' => push_str(out, "\x1b[J"), // clear to end of screen
             b'*' | b':' => push_str(out, "\x1b[2J\x1b[H"), // clear screen
+            // The Microbee VDU's highlight on/off (used by Turbo Pascal and other
+            // Microbee-configured software for menu hotkeys, etc.). These MUST be
+            // translated, not passed through: `ESC (` / `ESC )` are charset-
+            // designation lead-ins on a modern terminal, which would swallow the
+            // following byte — eating the highlighted character.
+            b'(' => push_str(out, "\x1b[7m"), // highlight on -> reverse video
+            b')' => push_str(out, "\x1b[27m"), // highlight off -> reverse off
             other => {
                 // Unknown — pass the ESC and this byte through verbatim. This is
                 // what lets modern ESC[ (CSI) sequences survive untouched.
@@ -147,6 +155,17 @@ mod tests {
         assert_eq!(run(TerminalMode::Adm3a, &[0x1E]), b"\x1b[H"); // home
         assert_eq!(run(TerminalMode::Adm3a, &[0x1B, b'T']), b"\x1b[K"); // clear EOL
         assert_eq!(run(TerminalMode::Adm3a, &[0x1B, b'Y']), b"\x1b[J"); // clear EOS
+    }
+
+    #[test]
+    fn microbee_highlight_does_not_eat_the_next_char() {
+        // `ESC (` / `ESC )` are the Microbee VDU highlight pair. Passed through
+        // verbatim, a modern terminal reads `ESC (` as a charset-designation
+        // lead-in and swallows the next byte — Turbo's "BORLAND" rendered as
+        // "ORLAND". They must translate to ANSI reverse video, leaving the text
+        // (the `B` and `C` here) intact.
+        let out = run(TerminalMode::Adm3a, b"\x1b(B\x1b)C");
+        assert_eq!(out, b"\x1b[7mB\x1b[27mC");
     }
 
     #[test]
