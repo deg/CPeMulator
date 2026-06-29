@@ -92,7 +92,11 @@ impl Terminal {
             }
             b'T' => push_str(out, "\x1b[K"), // clear to end of line
             b'Y' => push_str(out, "\x1b[J"), // clear to end of screen
-            b'*' | b':' => push_str(out, "\x1b[2J\x1b[H"), // clear screen
+            // Clear screen + home. `*`/`:` are ADM-3A variants; `;` is the
+            // Microbee VDU's clear (PACMAN95 emits `ESC ;` then `ESC =` home at
+            // the start of each redraw — without translating it the screen never
+            // cleared and new output overdrew the old).
+            b'*' | b':' | b';' => push_str(out, "\x1b[2J\x1b[H"),
             // The Microbee VDU's highlight on/off (used by Turbo Pascal and other
             // Microbee-configured software for menu hotkeys, etc.). These MUST be
             // translated, not passed through: `ESC (` / `ESC )` are charset-
@@ -155,6 +159,9 @@ mod tests {
         assert_eq!(run(TerminalMode::Adm3a, &[0x1E]), b"\x1b[H"); // home
         assert_eq!(run(TerminalMode::Adm3a, &[0x1B, b'T']), b"\x1b[K"); // clear EOL
         assert_eq!(run(TerminalMode::Adm3a, &[0x1B, b'Y']), b"\x1b[J"); // clear EOS
+        // ESC ; is the Microbee clear-screen (PACMAN95 redraws with it); without
+        // translating it the screen wasn't cleared and output overdrew the old.
+        assert_eq!(run(TerminalMode::Adm3a, &[0x1B, b';']), b"\x1b[2J\x1b[H");
     }
 
     #[test]
