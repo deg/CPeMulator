@@ -86,15 +86,14 @@ the OS layer. Here is the honest state of each piece.
 | HLE BIOS & boot                   | [x] boots to `A>` |
 | Disk subsystem                    | [x] 8"/8 MB read/write, `.dsk` mount/save, multiple drives (A..P) |
 | Console & terminal                | [x] interactive raw-TTY + ADM-3A emulation |
-| Debugger / monitor                | [~] execution core (breakpoints/step/continue); inspect/disasm/UI next |
+| Debugger / monitor                | [x] interactive: breakpoints, step/trace, disassembly, register/memory inspect+edit (Ctrl-\\) |
 | Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
 **`cargo run` boots an interactive CP/M session** in your terminal. The boot
 integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
 headless (booting and running `DIR`). You can load your own files (positional
-args) and mount persistent `.dsk` images on several drives (`--disk`). The
-debugger's execution core (breakpoints, single-step, continue) is in place; its
-interactive frontend (register/memory inspect, disassembly, tracing) is next.
+args), mount persistent `.dsk` images on several drives (`--disk`), and break
+into a built-in debug monitor at any time with **Ctrl-\\**.
 
 ## Running classic CP/M software
 
@@ -166,9 +165,30 @@ fit the BIOS work area.
 
 ### Keys
 
-- **Ctrl-\\** — quit the emulator (always works, even from a stuck program).
+- **Ctrl-\\** — break into the debug monitor (always works, even from a stuck program); `q` there quits the emulator, `g` resumes.
 - **Ctrl-C** — CP/M's own warm boot, back to `A>` (when the running program lets it).
 - To leave a *program*, use its own command — MBASIC `SYSTEM`, dBASE `QUIT`, etc.
+
+### The debug monitor
+
+Press **Ctrl-\\** at any time to pause CP/M and drop into a built-in monitor
+(a `-` prompt). It's a DDT-style machine-level debugger over the live Z80;
+numbers are hexadecimal:
+
+| Command | Does |
+|---------|------|
+| `r` | show registers (with decoded flags) |
+| `d [addr] [n]` | disassemble `n` instructions (the `>` marks the PC) |
+| `m [addr] [n]` | hex+ASCII memory dump |
+| `e addr b b …` | write bytes to memory |
+| `s [n]` | single-step `n` instructions, tracing each |
+| `b [addr]` / `bc addr`\|`*` | set/list, or clear, breakpoints |
+| `g` | resume CP/M | 
+| `q` | quit the emulator |
+
+Breakpoints set in the monitor fire during normal execution and drop you back
+into it. Resuming with `g` returns to CP/M exactly where it was — the break
+doesn't disturb the running session.
 
 ### Full-screen apps
 
