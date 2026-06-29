@@ -152,6 +152,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--raw` | Disable ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
 | `--disk=[X:]PATH` | Mount a `.dsk` image as drive `X` (A..P; default A) and **save changes back to it on exit** — so your in-CP/M work persists. Repeatable for several drives. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
+| `--config=PATH` | Read options from a config file before the command line (CLI flags override it). Defaults to `~/.config/cpemu/config`. One directive per line (`#` comments), each a flag without the `--` — e.g. `mhz=2`, `upper`, `disk=B:work.dsk`. |
 
 Flags are forwarded by `load-all.sh` too, e.g. `./scripts/load-all.sh --mhz=2`.
 

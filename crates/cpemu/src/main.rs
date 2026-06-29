@@ -47,6 +47,11 @@ OPTIONS:
                 --disk=B:work.dsk. If PATH does not exist a fresh disk is created
                 (drive A bootable, others blank). An existing image's size picks
                 its format; up to two 8 MB disks (or more smaller ones) fit.
+    --config=PATH
+                Read options from PATH before the command line (command-line
+                flags override it). Without this, ~/.config/cpemu/config is used
+                if it exists. One directive per line, '#' for comments, each the
+                flag without the leading -- (e.g. `mhz=2`, `upper`, `disk=g.dsk`).
     --help, -h  Show this help and exit.
 
 KEYS (while running):
@@ -97,40 +102,139 @@ fn terminate_text_file(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
     bytes
 }
 
-fn main() {
-    // Flags: terminal/CPU options plus host files to place on drive A: before
-    // booting. See HELP (or `--help`).
-    let mut mode = TerminalMode::Adm3a;
-    let mut mhz = 4.0_f64;
-    let mut throttled = true;
-    let mut upper = false;
-    let mut map_delete = true;
-    let mut format = DiskFormat::hard_8mb();
-    let mut disk_mounts: Vec<(u8, String)> = Vec::new();
-    let mut files = Vec::new();
-    for arg in std::env::args().skip(1) {
-        match arg.as_str() {
-            "--help" | "-h" => {
-                println!("{HELP}");
-                return;
-            }
-            "--raw" => mode = TerminalMode::Raw,
-            "--fast" => throttled = false,
-            "--upper" => upper = true,
-            "--no-map-delete" => map_delete = false,
-            "--floppy" => format = DiskFormat::floppy_8inch(),
-            _ if arg.starts_with("--disk=") => disk_mounts.push(parse_disk_spec(&arg[7..])),
-            _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
-                Ok(n) if n > 0.0 => mhz = n,
-                _ => eprintln!("  ignoring bad --mhz value: {}", &arg[6..]),
-            },
-            _ if arg.starts_with("--") => {
-                eprintln!("cpemu: unknown option {arg} (try --help)");
-                std::process::exit(2);
-            }
-            _ => files.push(arg),
+/// Everything the command line and config file decide: terminal/CPU options plus
+/// the disks and host files to place on them.
+struct Config {
+    mode: TerminalMode,
+    mhz: f64,
+    throttled: bool,
+    upper: bool,
+    map_delete: bool,
+    format: DiskFormat,
+    disk_mounts: Vec<(u8, String)>,
+    files: Vec<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            mode: TerminalMode::Adm3a,
+            mhz: 4.0,
+            throttled: true,
+            upper: false,
+            map_delete: true,
+            format: DiskFormat::hard_8mb(),
+            disk_mounts: Vec::new(),
+            files: Vec::new(),
         }
     }
+}
+
+/// The outcome of parsing arguments.
+enum Cli {
+    /// Run with this configuration.
+    Run(Box<Config>),
+    /// `--help`/`-h` was given.
+    Help,
+    /// A parse error, with a message.
+    Error(String),
+}
+
+/// Parse option flags and positional file arguments into a [`Config`]. Shared by
+/// the command line and the config file (whose directives become `--flag` args).
+/// Later arguments win, so command-line flags override the config file.
+fn parse_cli(args: impl Iterator<Item = String>) -> Cli {
+    let mut c = Config::default();
+    for arg in args {
+        match arg.as_str() {
+            "--help" | "-h" => return Cli::Help,
+            "--raw" => c.mode = TerminalMode::Raw,
+            "--fast" => c.throttled = false,
+            "--upper" => c.upper = true,
+            "--no-map-delete" => c.map_delete = false,
+            "--floppy" => c.format = DiskFormat::floppy_8inch(),
+            _ if arg.starts_with("--disk=") => c.disk_mounts.push(parse_disk_spec(&arg[7..])),
+            _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
+                Ok(n) if n > 0.0 => c.mhz = n,
+                _ => return Cli::Error(format!("bad --mhz value: {}", &arg[6..])),
+            },
+            _ if arg.starts_with("--") => {
+                return Cli::Error(format!("unknown option {arg} (try --help)"));
+            }
+            _ => c.files.push(arg),
+        }
+    }
+    Cli::Run(Box::new(c))
+}
+
+/// Turn config-file text into synthetic `--flag` arguments: one directive per
+/// line, `#` begins a comment, blank lines are ignored. A directive is a flag
+/// exactly as on the command line but without the leading `--` — e.g. `mhz=2`,
+/// `upper`, `disk=B:work.dsk`.
+fn config_lines_to_args(text: &str) -> Vec<String> {
+    text.lines()
+        .map(|l| l.split('#').next().unwrap_or("").trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| format!("--{l}"))
+        .collect()
+}
+
+/// Read the config file applied before the command line: an explicit
+/// `--config=PATH` (which must exist), else `~/.config/cpemu/config` if present.
+/// Returns its text, or `None` when there is no file to read.
+fn load_config(explicit: Option<&str>) -> Option<String> {
+    match explicit {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(text) => Some(text),
+            Err(e) => {
+                eprintln!("cpemu: cannot read config {path}: {e}");
+                std::process::exit(2);
+            }
+        },
+        None => {
+            let home = std::env::var_os("HOME")?;
+            std::fs::read_to_string(Path::new(&home).join(".config/cpemu/config")).ok()
+        }
+    }
+}
+
+fn main() {
+    // Arguments come from a config file (applied first) then the command line, so
+    // command-line flags override config-file directives. An explicit
+    // --config=PATH selects the file; otherwise a default path is tried.
+    let cli_args: Vec<String> = std::env::args().skip(1).collect();
+    let explicit = cli_args.iter().find_map(|a| a.strip_prefix("--config="));
+    let mut args: Vec<String> = Vec::new();
+    if let Some(text) = load_config(explicit) {
+        args.extend(config_lines_to_args(&text));
+    }
+    args.extend(
+        cli_args
+            .iter()
+            .filter(|a| !a.starts_with("--config="))
+            .cloned(),
+    );
+
+    let Config {
+        mode,
+        mhz,
+        throttled,
+        upper,
+        map_delete,
+        format,
+        disk_mounts,
+        files,
+    } = match parse_cli(args.into_iter()) {
+        Cli::Run(c) => *c,
+        Cli::Help => {
+            println!("{HELP}");
+            return;
+        }
+        Cli::Error(e) => {
+            eprintln!("cpemu: {e}");
+            std::process::exit(2);
+        }
+    };
 
     println!("cpemu — CP/M 2.2.   (Ctrl-\\ for the debug monitor)");
 
@@ -402,7 +506,70 @@ fn read_line<C: Console>(con: &mut C) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_disk_spec, terminate_text_file};
+    use super::*;
+
+    fn parse(args: &[&str]) -> Config {
+        match parse_cli(args.iter().map(|s| s.to_string())) {
+            Cli::Run(c) => *c,
+            _ => panic!("expected Run for {args:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_cli_defaults() {
+        let d = parse(&[]);
+        assert_eq!(d.mhz, 4.0);
+        assert!(d.throttled);
+        assert!(!d.upper);
+        assert!(d.map_delete);
+        assert!(d.disk_mounts.is_empty());
+        assert!(d.files.is_empty());
+    }
+
+    #[test]
+    fn parse_cli_flags_and_files() {
+        let c = parse(&[
+            "--fast",
+            "--upper",
+            "--mhz=2",
+            "--disk=B:x.dsk",
+            "ZORK1.COM",
+        ]);
+        assert!(!c.throttled);
+        assert!(c.upper);
+        assert_eq!(c.mhz, 2.0);
+        assert_eq!(c.disk_mounts, vec![(1, "x.dsk".to_string())]);
+        assert_eq!(c.files, vec!["ZORK1.COM".to_string()]);
+    }
+
+    #[test]
+    fn parse_cli_help_and_errors() {
+        assert!(matches!(
+            parse_cli(["--help".to_string()].into_iter()),
+            Cli::Help
+        ));
+        assert!(matches!(
+            parse_cli(["--bogus".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
+        assert!(matches!(
+            parse_cli(["--mhz=fast".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
+    }
+
+    #[test]
+    fn config_lines_become_flags_then_cli_overrides() {
+        let text = "# defaults\nmhz=2\nupper   # be loud\n\ndisk=games.dsk\n";
+        let cfg = config_lines_to_args(text);
+        assert_eq!(cfg, vec!["--mhz=2", "--upper", "--disk=games.dsk"]);
+        // A later command-line --mhz=4 overrides the config's mhz=2.
+        let combined: Vec<String> = cfg.into_iter().chain(["--mhz=4".to_string()]).collect();
+        let c = parse(&combined.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        assert_eq!(c.mhz, 4.0); // CLI won
+        assert!(c.upper); // from the config file
+        assert_eq!(c.disk_mounts, vec![(0, "games.dsk".to_string())]);
+    }
 
     #[test]
     fn disk_spec_parses_drive_prefix() {
