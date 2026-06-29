@@ -152,6 +152,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--fast` | Run unthrottled; on exit, reports the equivalent clock for that run (e.g. *"ran unthrottled at ~995 MHz, equivalent to --mhz=995"*). Workload-dependent. |
 | `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
+| `--arrows` | Map the arrow keys to WordStar's cursor diamond (Up=`^E` Down=`^X` Left=`^S` Right=`^D`), so they work in WordStar, the Turbo editor, and other WordStar-style editors. Off by default — those codes do other things at the `A>` prompt (`^S` pauses output, `^X` kills the line). |
 | `--raw` | Disable TeleVideo/ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
 | `--machine=NAME` | Select a machine profile (default `virtual`, the only one today; the seam for future machines). |

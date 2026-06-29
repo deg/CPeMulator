@@ -42,6 +42,11 @@ OPTIONS:
                 Keep CP/M's authentic RUBOUT: the Delete key deletes a char but
                 re-echoes it. By default Delete is mapped to Backspace so it
                 erases cleanly.
+    --arrows    Map the arrow keys to WordStar's cursor diamond
+                (Up=^E Down=^X Left=^S Right=^D), so they work in WordStar, the
+                Turbo editor, and other WordStar-style editors. Off by default,
+                because those codes do other things at the A> prompt (^S pauses
+                output, ^X kills the input line).
     --floppy    Use a small 8\" floppy (~241 KB) instead of the default 8 MB
                 disk.
     --machine=NAME
@@ -130,6 +135,7 @@ struct Config {
     throttled: bool,
     upper: bool,
     map_delete: bool,
+    ws_keys: bool,
     format: DiskFormat,
     disk_mounts: Vec<(u8, String)>,
     files: Vec<String>,
@@ -144,6 +150,7 @@ impl Default for Config {
             throttled: true,
             upper: false,
             map_delete: true,
+            ws_keys: false,
             format: DiskFormat::hard_8mb(),
             disk_mounts: Vec::new(),
             files: Vec::new(),
@@ -178,6 +185,7 @@ fn parse_cli(args: impl Iterator<Item = String>) -> Cli {
             "--fast" => c.throttled = false,
             "--upper" => c.upper = true,
             "--no-map-delete" => c.map_delete = false,
+            "--arrows" => c.ws_keys = true,
             "--floppy" => c.format = DiskFormat::floppy_8inch(),
             _ if arg.starts_with("--machine=") => match machine_by_name(&arg[10..]) {
                 Some(m) => c.machine = m,
@@ -327,6 +335,7 @@ fn main() {
         throttled,
         upper,
         map_delete,
+        ws_keys,
         format,
         disk_mounts,
         files,
@@ -434,7 +443,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    let console = match TerminalConsole::new(mode, upper, map_delete) {
+    let console = match TerminalConsole::new(mode, upper, map_delete, ws_keys) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("cpemu: needs an interactive terminal (could not enter raw mode: {e})");
