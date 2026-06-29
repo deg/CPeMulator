@@ -200,15 +200,22 @@ impl KeyXlate {
                 }
             }
             KeyState::Seq => {
-                if (0x40..=0x7E).contains(&b) {
+                if b == 0x1B {
+                    // A fresh ESC aborts and restarts the parse (standard
+                    // terminal behavior), so the new sequence isn't lost.
+                    self.state = KeyState::Esc;
+                } else if (0x40..=0x7E).contains(&b) {
                     if let Some(mapped) = map_key_seq(&self.params, b) {
                         out.push(mapped);
                     }
                     // An unrecognized nav sequence is dropped rather than echoed
                     // as garbage — you opted into key mapping.
                     self.state = KeyState::Normal;
-                } else {
+                } else if self.params.len() < 16 {
                     self.params.push(b);
+                } else {
+                    // Runaway sequence (no real key is this long): resync.
+                    self.state = KeyState::Normal;
                 }
             }
         }
@@ -326,6 +333,13 @@ mod tests {
         // A function key (e.g. ESC[15~) maps to nothing rather than echoing
         // "[15~" into the editor.
         assert_eq!(xlate(true, b"\x1b[15~"), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn esc_restarts_an_in_progress_sequence() {
+        // A fresh ESC[ mid-sequence restarts the parse, so the real arrow that
+        // follows is recognized rather than mis-parsed and swallowed.
+        assert_eq!(xlate(true, b"\x1b[\x1b[A"), vec![0x05]);
     }
 
     #[test]

@@ -433,28 +433,22 @@ impl Disk {
     /// `WS.COM` with the chosen terminal, and we extract the result.
     pub fn read_file(&self, filename: &str) -> Option<Vec<u8>> {
         let (name, ext) = parse_filename(filename).ok()?;
-        let fmt = self.format;
-        let bpe = fmt.blocks_per_entry();
         // Gather every directory extent for this name (a file > 16 KB spans
-        // several), then read them back in extent order.
+        // several), then read them back in extent order. The name compare is
+        // exact across all 8 bits: `add_file` writes the attribute high bits
+        // (R/O, System, Archive) clear and an in-place guest patch preserves
+        // them, so there is nothing to mask off — same as `reconstruct`.
         let mut extents: Vec<(usize, usize, Vec<usize>)> = Vec::new();
-        for idx in 0..fmt.dir_entries {
+        for idx in 0..self.format.dir_entries {
             let e = self.dir_entry(idx);
-            if e[0] == 0xE5 || e[1..9] != name || e[9..12] != ext {
+            if e[0] == EMPTY || e[1..9] != name || e[9..12] != ext {
                 continue; // empty/deleted, or a different file
             }
-            let mut blocks = Vec::new();
-            for j in 0..bpe {
-                let blk = if fmt.wide_alloc {
-                    usize::from(e[16 + 2 * j]) | (usize::from(e[16 + 2 * j + 1]) << 8)
-                } else {
-                    usize::from(e[16 + j])
-                };
-                if blk != 0 {
-                    blocks.push(blk);
-                }
-            }
-            extents.push((usize::from(e[12]), usize::from(e[15]), blocks));
+            extents.push((
+                usize::from(e[12]),
+                usize::from(e[15]),
+                self.entry_blocks(&e),
+            ));
         }
         if extents.is_empty() {
             return None;
