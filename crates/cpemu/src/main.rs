@@ -357,12 +357,11 @@ fn main() {
 
     // Run the CP/M session, dropping into the debug monitor on the break key
     // (Ctrl-\) or a breakpoint, until the machine stops or the user quits.
-    // `idle_ms` accumulates time spent parked at the prompt, so the unthrottled
-    // speed report measures actual execution, not the operator's think time.
-    let started = Instant::now();
-    let mut idle_ms = 0u64;
+    // `active` accumulates only the wall time spent executing, so the unthrottled
+    // speed report measures actual emulation throughput.
+    let mut active = Duration::ZERO;
     let outcome = loop {
-        match run_until_pause(&mut mon, conin, &mut throttle, &mut idle_ms) {
+        match run_until_pause(&mut mon, conin, &mut throttle, &mut active) {
             Pause::Eof => break Outcome::Eof,
             Pause::Halted => break Outcome::Halted,
             Pause::Stopped => break Outcome::Stopped,
@@ -414,15 +413,12 @@ fn main() {
     println!("\r\ncpemu: {exit}.");
 
     // When unthrottled, report the speed actually achieved: cycles run divided by
-    // active (non-idle) wall time. Skip it when too little ran to be meaningful.
+    // the active (executing) wall time. Skip it when too little ran to be useful.
     if !throttled {
-        let active = started
-            .elapsed()
-            .saturating_sub(Duration::from_millis(idle_ms));
         let secs = active.as_secs_f64();
-        if secs > 0.01 && cycles > 500_000 {
+        if secs > 0.001 && cycles > 100_000 {
             println!(
-                "cpemu: ran unthrottled at ~{:.0} MHz ({:.0}M cycles in {:.2}s of execution)",
+                "cpemu: ran unthrottled at ~{:.0} MHz ({:.0}M cycles in {:.3}s of execution)",
                 cycles as f64 / secs / 1e6,
                 cycles as f64 / 1e6,
                 secs
@@ -463,43 +459,58 @@ enum Outcome {
 /// Step the CP/M session until it should pause: the break key, a breakpoint, a
 /// machine stop, or end of input. Idle-sleeps while parked at CONIN so an idle
 /// prompt doesn't busy-wait the host CPU.
+///
+/// `active` accumulates only the wall time spent actually executing — each
+/// stepping burst is timed and idle sleeps are excluded — so the unthrottled
+/// speed report reflects emulation throughput, not the operator's think time or
+/// time spent in the monitor (which happens between calls to this function).
 fn run_until_pause<C: Console>(
     mon: &mut Monitor<CpmBios<C>>,
     conin: u16,
     throttle: &mut Option<Throttle>,
-    idle_ms: &mut u64,
+    active: &mut Duration,
 ) -> Pause {
     // Don't immediately re-trigger a breakpoint we're resuming from: the first
     // instruction always runs before breakpoints are checked again.
     let mut skip_bp = true;
-    loop {
+    // Timestamp of the current run of consecutive steps (None while idle).
+    let mut burst: Option<Instant> = None;
+    let result = loop {
         if mon.exec.bios.console.wants_break() {
-            return Pause::Break;
+            break Pause::Break;
         }
         if mon.exec.bios.console.wants_quit() || mon.exec.bios.eof {
-            return Pause::Eof;
+            break Pause::Eof;
         }
         if !skip_bp && mon.has_breakpoint(mon.pc()) {
-            return Pause::Breakpoint(mon.pc());
+            break Pause::Breakpoint(mon.pc());
         }
         skip_bp = false;
         if mon.pc() == conin && !mon.exec.bios.console.status() {
+            // Parked at the prompt: close the active burst and sleep (not counted).
+            if let Some(t) = burst.take() {
+                *active += t.elapsed();
+            }
             std::thread::sleep(Duration::from_millis(2));
-            *idle_ms += 2;
             continue;
         }
+        burst.get_or_insert_with(Instant::now);
         match mon.step() {
             None => {}
-            Some(StopReason::Halted) => return Pause::Halted,
-            Some(StopReason::Stopped) => return Pause::Stopped,
-            Some(StopReason::Illegal(op)) => return Pause::Illegal(op),
+            Some(StopReason::Halted) => break Pause::Halted,
+            Some(StopReason::Stopped) => break Pause::Stopped,
+            Some(StopReason::Illegal(op)) => break Pause::Illegal(op),
             // step() never reports these (only run() does); ignore for completeness.
             Some(StopReason::Breakpoint(_) | StopReason::StepLimit) => {}
         }
         if let Some(t) = throttle {
             t.sync(mon.exec.cpu.cycles);
         }
+    };
+    if let Some(t) = burst.take() {
+        *active += t.elapsed();
     }
+    result
 }
 
 /// The interactive debug-monitor prompt: show the entry banner and registers,
