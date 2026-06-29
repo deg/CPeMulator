@@ -93,7 +93,10 @@ the OS layer. Here is the honest state of each piece.
 integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
 headless (booting and running `DIR`). You can load your own files (positional
 args), mount persistent `.dsk` images on several drives (`--disk`), and break
-into a built-in debug monitor at any time with **Ctrl-\\**.
+into a built-in debug monitor at any time with **Ctrl-\\**. At startup a quick
+fixed-mix benchmark prints the host's raw Z80 throughput (e.g. *"~1170 MHz, ~292x
+a 4 MHz Z80"*) — a reproducible figure, unlike the workload-dependent `--fast`
+number.
 
 ## Running classic CP/M software
 

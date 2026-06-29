@@ -9,9 +9,11 @@ use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
 use cpemu::debugger::{Action, Debugger};
 use cpemu::disk::{self, Disk, DiskFormat};
+use cpemu::machine::Machine;
 use cpemu::monitor::{Monitor, StopReason};
 use cpemu::terminal::TerminalMode;
 use cpemu::throttle::Throttle;
+use cpemu_cpu::Cpu;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -107,12 +109,12 @@ fn terminate_text_file(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
 }
 
 /// A named machine profile: a name and a constructor for its [`MachineConfig`].
-type Machine = (&'static str, fn() -> MachineConfig);
+type MachineProfile = (&'static str, fn() -> MachineConfig);
 
 /// Machine profiles selectable with `--machine`. Only the built-in virtual
 /// machine exists today; alternate profiles (other memory maps and BIOSes, e.g.
 /// a Kaypro or Altair) would register here.
-const MACHINES: &[Machine] = &[("virtual", MachineConfig::virtual_default)];
+const MACHINES: &[MachineProfile] = &[("virtual", MachineConfig::virtual_default)];
 
 /// Look up a machine profile by name.
 fn machine_by_name(name: &str) -> Option<MachineConfig> {
@@ -228,6 +230,59 @@ fn load_config(explicit: Option<&str>) -> Option<String> {
     }
 }
 
+/// A fixed-mix Z80 micro-benchmark: run a representative instruction loop on a
+/// throwaway CPU for `budget` of wall time and return the emulation rate in MHz.
+/// The instruction mix is fixed, so the figure is reproducible and comparable
+/// across runs, builds, and hosts — unlike the workload-dependent `--fast`
+/// number. It measures the host's raw Z80 throughput, with no console/disk I/O.
+fn benchmark_mhz(config: &MachineConfig, budget: Duration) -> f64 {
+    // A loop mixing immediate/register/memory loads, 8- and 16-bit ALU, a rotate,
+    // and a CALL/RET, then JP back to the top. It resets SP/HL each pass and only
+    // ever writes to scratch RAM at 0x4000, so it runs forever without escaping.
+    #[rustfmt::skip]
+    const PROG: &[u8] = &[
+        0x31, 0x00, 0x80, // LD SP,0x8000
+        0x21, 0x00, 0x40, // LD HL,0x4000
+        0x3E, 0x5A,       // LD A,0x5A
+        0x06, 0x10,       // LD B,0x10
+        0x77,             // LD (HL),A
+        0x4E,             // LD C,(HL)
+        0x81,             // ADD A,C
+        0x90,             // SUB B
+        0xE6, 0x0F,       // AND 0x0F
+        0xF6, 0xC0,       // OR 0xC0
+        0xA8,             // XOR B
+        0x23,             // INC HL
+        0x05,             // DEC B
+        0x19,             // ADD HL,DE
+        0xFE, 0x42,       // CP 0x42
+        0x07,             // RLCA
+        0xCD, 0x20, 0x01, // CALL 0x0120
+        0xC3, 0x00, 0x01, // JP 0x0100
+    ];
+    #[rustfmt::skip]
+    const SUB: &[u8] = &[
+        0x13, // INC DE
+        0x0D, // DEC C
+        0x87, // ADD A,A
+        0xC9, // RET
+    ];
+    let mut machine = Machine::from_config(config);
+    machine.mem.load(0x0100, PROG);
+    machine.mem.load(0x0120, SUB);
+    let mut cpu = Cpu::new();
+    cpu.regs.pc = 0x0100;
+
+    let start = Instant::now();
+    // Check the clock only every batch of steps, so timing overhead is negligible.
+    while start.elapsed() < budget {
+        for _ in 0..50_000 {
+            cpu.step(&mut machine);
+        }
+    }
+    cpu.cycles as f64 / start.elapsed().as_secs_f64() / 1e6
+}
+
 fn main() {
     // Arguments come from a config file (applied first) then the command line, so
     // command-line flags override config-file directives. An explicit
@@ -319,12 +374,21 @@ fn main() {
     }
     let mut throttle = throttled.then(|| Throttle::new((mhz * 1_000_000.0) as u64));
     println!(
-        "Booting drive A:  ({})\n",
+        "Booting drive A:  ({})",
         if throttle.is_some() {
             format!("{mhz} MHz")
         } else {
             "unthrottled — real-time factor reported on exit".to_string()
         }
+    );
+
+    // A quick fixed-mix benchmark of raw Z80 throughput on this host, so you can
+    // see the headroom before the prompt. Reproducible (unlike the workload-
+    // dependent --fast figure).
+    let bench = benchmark_mhz(&machine, Duration::from_millis(50));
+    println!(
+        "Host emulates the Z80 at ~{bench:.0} MHz (~{:.0}x a {mhz} MHz Z80)\n",
+        bench / mhz
     );
 
     // Check the mounted drives' BIOS structures fit above the jump table before
@@ -616,6 +680,12 @@ mod tests {
         assert_eq!(c.mhz, 2.0);
         assert_eq!(c.disk_mounts, vec![(1, "x.dsk".to_string())]);
         assert_eq!(c.files, vec!["ZORK1.COM".to_string()]);
+    }
+
+    #[test]
+    fn benchmark_runs_and_reports_a_positive_rate() {
+        let mhz = benchmark_mhz(&MachineConfig::virtual_default(), Duration::from_millis(2));
+        assert!(mhz > 0.0 && mhz.is_finite(), "benchmark returned {mhz}");
     }
 
     #[test]
