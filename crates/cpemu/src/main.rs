@@ -7,8 +7,9 @@
 use cpemu::bios::{Console, CpmBios, cold_boot_bios, work_area_bytes};
 use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
+use cpemu::debugger::{Action, Debugger};
 use cpemu::disk::{self, Disk, DiskFormat};
-use cpemu::executor::RunExit;
+use cpemu::monitor::{Monitor, StopReason};
 use cpemu::terminal::TerminalMode;
 use cpemu::throttle::Throttle;
 use std::path::Path;
@@ -49,7 +50,7 @@ OPTIONS:
     --help, -h  Show this help and exit.
 
 KEYS (while running):
-    Ctrl-\\      Quit the emulator (always works).
+    Ctrl-\\      Break into the debug monitor (? for help; g resumes, q quits).
     Ctrl-C      CP/M warm boot — back to the A> prompt (when the program lets it).
 
 SCRIPTS:
@@ -125,7 +126,7 @@ fn main() {
         }
     }
 
-    println!("cpemu — CP/M 2.2.   (press Ctrl-\\ to quit)");
+    println!("cpemu — CP/M 2.2.   (Ctrl-\\ for the debug monitor)");
 
     // Resolve each --disk mount: load an existing image (its size picks the
     // format) or create a fresh disk (drive A bootable, other drives blank).
@@ -210,49 +211,185 @@ fn main() {
     for (drive, disk) in extras {
         bios.mount(drive, disk);
     }
-    let mut exec = cold_boot_bios(config, bios);
+    let mut mon = Monitor::new(cold_boot_bios(config, bios));
+    let mut dbg = Debugger::new();
+    let conin = config.bios_vector(3);
 
-    let exit = loop {
-        if exec.bios.console.wants_quit() {
-            break "quit";
-        }
-        if exec.bios.eof {
-            break "input closed";
-        }
-        match exec.step() {
-            None => {}
-            Some(RunExit::Halted) => break "halted",
-            Some(RunExit::Stopped) => break "stopped",
-            Some(RunExit::Illegal(op)) => {
-                // Restore the terminal before printing the diagnostic.
-                drop(exec);
-                eprintln!("\r\ncpemu: illegal opcode {op:#04X}");
-                std::process::exit(1);
+    // Run the CP/M session, dropping into the debug monitor on the break key
+    // (Ctrl-\) or a breakpoint, until the machine stops or the user quits.
+    let outcome = loop {
+        match run_until_pause(&mut mon, conin, &mut throttle) {
+            Pause::Eof => break Outcome::Eof,
+            Pause::Halted => break Outcome::Halted,
+            Pause::Stopped => break Outcome::Stopped,
+            Pause::Illegal(op) => break Outcome::Illegal(op),
+            Pause::Break => {
+                let banner = Debugger::banner(mon.pc());
+                if monitor_repl(&mut mon, &mut dbg, &banner) == Action::Quit {
+                    break Outcome::Quit;
+                }
             }
-        }
-        if let Some(t) = &mut throttle {
-            t.sync(exec.cpu.cycles);
+            Pause::Breakpoint(addr) => {
+                let banner = format!("-- breakpoint at {addr:04X} --");
+                if monitor_repl(&mut mon, &mut dbg, &banner) == Action::Quit {
+                    break Outcome::Quit;
+                }
+            }
         }
     };
 
-    // Snapshot each path-backed drive before dropping the executor, so the images
-    // can be written back in cooked-terminal mode after the drop. The
-    // illegal-opcode path above exits without reaching here, so a crashed run
-    // never overwrites an image.
-    let saves: Vec<(String, Vec<u8>)> = disk_mounts
-        .iter()
-        .filter_map(|(drive, path)| {
-            exec.bios
-                .disk_at(*drive)
-                .map(|d| (path.clone(), d.image().to_vec()))
-        })
-        .collect();
-    drop(exec); // restores cooked terminal mode
+    // Snapshot each path-backed drive before dropping the monitor, so images save
+    // in cooked-terminal mode after the drop. A crash (illegal opcode) saves
+    // nothing, so it can't overwrite an image with corrupt state.
+    let saves: Vec<(String, Vec<u8>)> = if matches!(outcome, Outcome::Illegal(_)) {
+        Vec::new()
+    } else {
+        disk_mounts
+            .iter()
+            .filter_map(|(drive, path)| {
+                mon.exec
+                    .bios
+                    .disk_at(*drive)
+                    .map(|d| (path.clone(), d.image().to_vec()))
+            })
+            .collect()
+    };
+    drop(mon); // restores cooked terminal mode
+
+    let exit = match outcome {
+        Outcome::Quit => "quit",
+        Outcome::Eof => "input closed",
+        Outcome::Halted => "halted",
+        Outcome::Stopped => "stopped",
+        Outcome::Illegal(op) => {
+            eprintln!("\r\ncpemu: illegal opcode {op:#04X}");
+            std::process::exit(1);
+        }
+    };
     println!("\r\ncpemu: {exit}.");
     for (path, bytes) in saves {
         match disk::write_image(Path::new(&path), &bytes) {
             Ok(()) => println!("cpemu: saved disk image to {path}"),
             Err(e) => eprintln!("cpemu: could not save {path}: {e}"),
+        }
+    }
+}
+
+/// Why the run loop paused.
+enum Pause {
+    /// The user pressed the break key (Ctrl-\).
+    Break,
+    /// Execution reached a breakpoint at this address.
+    Breakpoint(u16),
+    Halted,
+    Stopped,
+    Illegal(u8),
+    /// The input stream closed.
+    Eof,
+}
+
+/// How the session ended.
+enum Outcome {
+    Quit,
+    Eof,
+    Halted,
+    Stopped,
+    Illegal(u8),
+}
+
+/// Step the CP/M session until it should pause: the break key, a breakpoint, a
+/// machine stop, or end of input. Idle-sleeps while parked at CONIN so an idle
+/// prompt doesn't busy-wait the host CPU.
+fn run_until_pause<C: Console>(
+    mon: &mut Monitor<CpmBios<C>>,
+    conin: u16,
+    throttle: &mut Option<Throttle>,
+) -> Pause {
+    // Don't immediately re-trigger a breakpoint we're resuming from: the first
+    // instruction always runs before breakpoints are checked again.
+    let mut skip_bp = true;
+    loop {
+        if mon.exec.bios.console.wants_break() {
+            return Pause::Break;
+        }
+        if mon.exec.bios.console.wants_quit() || mon.exec.bios.eof {
+            return Pause::Eof;
+        }
+        if !skip_bp && mon.has_breakpoint(mon.pc()) {
+            return Pause::Breakpoint(mon.pc());
+        }
+        skip_bp = false;
+        if mon.pc() == conin && !mon.exec.bios.console.status() {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            continue;
+        }
+        match mon.step() {
+            None => {}
+            Some(StopReason::Halted) => return Pause::Halted,
+            Some(StopReason::Stopped) => return Pause::Stopped,
+            Some(StopReason::Illegal(op)) => return Pause::Illegal(op),
+            // step() never reports these (only run() does); ignore for completeness.
+            Some(StopReason::Breakpoint(_) | StopReason::StepLimit) => {}
+        }
+        if let Some(t) = throttle {
+            t.sync(mon.exec.cpu.cycles);
+        }
+    }
+}
+
+/// The interactive debug-monitor prompt: show the entry banner and registers,
+/// then read and run commands until the user resumes (`g`) or quits (`q`).
+fn monitor_repl<C: Console>(
+    mon: &mut Monitor<CpmBios<C>>,
+    dbg: &mut Debugger,
+    entry: &str,
+) -> Action {
+    write_console(&mut mon.exec.bios.console, &format!("\r\n{entry}\r\n"));
+    let regs = dbg.command(mon, "r").0;
+    write_console(&mut mon.exec.bios.console, &regs);
+    loop {
+        write_console(&mut mon.exec.bios.console, "- ");
+        let Some(line) = read_line(&mut mon.exec.bios.console) else {
+            return Action::Quit; // the input stream closed
+        };
+        let (out, action) = dbg.command(mon, line.trim());
+        write_console(&mut mon.exec.bios.console, &out);
+        if action != Action::Stay {
+            return action;
+        }
+    }
+}
+
+/// Write a string to the console byte by byte (through the terminal translation).
+fn write_console<C: Console>(con: &mut C, s: &str) {
+    for b in s.bytes() {
+        con.write(b);
+    }
+}
+
+/// Read a line from the console in raw mode, echoing input and handling
+/// backspace. Returns `None` if the input stream closes.
+fn read_line<C: Console>(con: &mut C) -> Option<String> {
+    let mut line = String::new();
+    loop {
+        let b = con.read()?;
+        match b {
+            b'\r' | b'\n' => {
+                con.write(b'\r');
+                con.write(b'\n');
+                return Some(line);
+            }
+            0x08 | 0x7F if !line.is_empty() => {
+                line.pop();
+                con.write(0x08);
+                con.write(b' ');
+                con.write(0x08);
+            }
+            0x20..=0x7E => {
+                con.write(b);
+                line.push(b as char);
+            }
+            _ => {}
         }
     }
 }

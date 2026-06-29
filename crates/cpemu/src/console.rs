@@ -10,8 +10,8 @@
 //! answer without blocking by peeking at the channel.
 //!
 //! Raw mode is restored automatically when the console is dropped. Press
-//! **Ctrl-\\** to leave the emulator (it closes the input stream, which the BIOS
-//! sees as end of input).
+//! **Ctrl-\\** to break into the debug monitor (from which `q` quits); closing
+//! the input stream (Ctrl-D / pipe end) is what the BIOS sees as end of input.
 
 use crate::bios::Console;
 use crate::terminal::{Terminal, TerminalMode};
@@ -22,9 +22,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 
-/// The byte that quits the emulator (Ctrl-\, the file separator — effectively
-/// unused by CP/M software).
-const QUIT: u8 = 0x1C;
+/// The byte that breaks into the debug monitor (Ctrl-\, the file separator —
+/// effectively unused by CP/M software).
+const BREAK: u8 = 0x1C;
 
 /// Restores cooked terminal mode when dropped.
 struct RawGuard;
@@ -47,7 +47,12 @@ pub struct TerminalConsole {
     rx: Receiver<u8>,
     pending: Option<u8>,
     term: Terminal,
-    quit: Arc<AtomicBool>,
+    /// Set when the input stream ends (Ctrl-D / pipe close): the run loop treats
+    /// this as quit, and CONIN treats it as end of input.
+    closed: Arc<AtomicBool>,
+    /// Set when the break key (Ctrl-\) is pressed: the run loop drops into the
+    /// debug monitor. Cleared when polled.
+    brk: Arc<AtomicBool>,
     /// Fold typed lowercase letters to uppercase (for old programs that expect
     /// capitals).
     upper: bool,
@@ -65,30 +70,36 @@ impl TerminalConsole {
     pub fn new(mode: TerminalMode, upper: bool, map_delete: bool) -> io::Result<Self> {
         let raw = RawGuard::enable()?;
         let (tx, rx) = mpsc::channel();
-        let quit = Arc::new(AtomicBool::new(false));
-        let reader_quit = Arc::clone(&quit);
+        let closed = Arc::new(AtomicBool::new(false));
+        let brk = Arc::new(AtomicBool::new(false));
+        let reader_closed = Arc::clone(&closed);
+        let reader_brk = Arc::clone(&brk);
         thread::spawn(move || {
             let stdin = io::stdin();
             for byte in stdin.lock().bytes() {
                 match byte {
-                    Ok(QUIT) | Err(_) => break, // quit key or stream closed
+                    // The break key raises the monitor flag but does NOT end the
+                    // stream — input keeps flowing after you resume.
+                    Ok(BREAK) => reader_brk.store(true, Ordering::SeqCst),
                     Ok(b) => {
                         if tx.send(b).is_err() {
                             break; // the console was dropped
                         }
                     }
+                    Err(_) => break, // stream error
                 }
             }
-            // The quit key or a closed stream ends the loop: raise the quit flag
-            // (which the run loop polls every step) and drop `tx` so a blocked
-            // CONIN also unblocks.
-            reader_quit.store(true, Ordering::SeqCst);
+            // The stream ended (EOF/error or the console was dropped): raise the
+            // closed flag (polled by the run loop as quit, read by CONIN as EOF)
+            // and drop `tx` so a blocked read unblocks.
+            reader_closed.store(true, Ordering::SeqCst);
         });
         Ok(Self {
             rx,
             pending: None,
             term: Terminal::new(mode),
-            quit,
+            closed,
+            brk,
             upper,
             map_delete,
             _raw: raw,
@@ -136,7 +147,15 @@ impl Console for TerminalConsole {
     }
 
     fn wants_quit(&self) -> bool {
-        self.quit.load(Ordering::SeqCst)
+        self.closed.load(Ordering::SeqCst)
+    }
+
+    fn at_eof(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
+    }
+
+    fn wants_break(&mut self) -> bool {
+        self.brk.swap(false, Ordering::SeqCst)
     }
 }
 

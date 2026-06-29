@@ -32,10 +32,25 @@ pub trait Console {
     /// Write one character to the console.
     fn write(&mut self, byte: u8);
 
-    /// Whether the user has asked to quit the emulator (e.g. the quit key). The
-    /// run loop checks this every step, so it works even when the running
-    /// program busy-polls `CONST` and never calls `CONIN`. Default: never.
+    /// Whether the user has asked to quit the emulator (e.g. the input stream
+    /// closed). The run loop checks this every step, so it works even when the
+    /// running program busy-polls `CONST` and never calls `CONIN`. Default: never.
     fn wants_quit(&self) -> bool {
+        false
+    }
+
+    /// Whether the input source is permanently exhausted — no further input will
+    /// ever arrive. CONIN returns `^Z` (and the BIOS flags EOF) in this state. An
+    /// interactive terminal is at EOF only once its stream closes; a scripted
+    /// console is at EOF as soon as its queue empties. Default: never.
+    fn at_eof(&self) -> bool {
+        false
+    }
+
+    /// Whether the user has asked to break into the debug monitor (the break
+    /// key). Polled by the run loop and **cleared** by this call, so it fires
+    /// once per press. Default: never.
+    fn wants_break(&mut self) -> bool {
         false
     }
 }
@@ -73,6 +88,9 @@ impl Console for ScriptedConsole {
     }
     fn write(&mut self, byte: u8) {
         self.output.push(byte);
+    }
+    fn at_eof(&self) -> bool {
+        self.input.is_empty()
     }
 }
 
@@ -311,8 +329,23 @@ impl<C: Console> BiosTrap for CpmBios<C> {
                 TrapAction::Return
             }
             3 => {
-                cpu.regs.a = self.conin(); // CONIN
-                TrapAction::Return
+                // CONIN. If a key is waiting, return it. If the stream is truly
+                // closed, return ^Z and flag EOF (how headless runs stop). Else
+                // no key yet but more may come: re-trap CONIN so the run loop
+                // keeps control (to poll the break/quit keys and idle-sleep)
+                // instead of blocking the host thread here. The CALL return
+                // address stays on the stack across re-traps; the eventual
+                // Return pops it.
+                if self.console.status() {
+                    cpu.regs.a = self.conin();
+                    TrapAction::Return
+                } else if self.console.at_eof() {
+                    self.eof = true;
+                    cpu.regs.a = 0x1A; // ^Z
+                    TrapAction::Return
+                } else {
+                    TrapAction::Jump(self.config.bios_vector(3))
+                }
             }
             4 | 5 => {
                 self.console.write(cpu.regs.c); // CONOUT / LIST
@@ -571,6 +604,63 @@ mod tests {
             }
         }
         assert!(steps >= 5000);
+    }
+
+    #[test]
+    fn conin_retraps_while_idle_then_returns_the_byte() {
+        // The interruptible-CONIN path: when no key is ready and the stream is not
+        // at EOF, CONIN must re-trap itself (so the run loop keeps control) rather
+        // than block or corrupt state; once a key is ready it returns it.
+        struct Delayed {
+            ready: bool,
+        }
+        impl Console for Delayed {
+            fn read(&mut self) -> Option<u8> {
+                Some(b'Q')
+            }
+            fn status(&mut self) -> bool {
+                self.ready
+            }
+            fn write(&mut self, _: u8) {}
+            // never at_eof (default)
+        }
+        let cfg = MachineConfig::virtual_default();
+        let mut machine = Machine::from_config(&cfg);
+        let mut bios = CpmBios::new(cfg, Delayed { ready: false }, Disk::blank());
+        let mut cpu = Cpu::new();
+        let conin = cfg.bios_vector(3);
+
+        // Idle: re-trap back to the CONIN vector, A and EOF untouched.
+        assert!(matches!(
+            bios.call(3, &mut cpu, &mut machine.mem),
+            TrapAction::Jump(a) if a == conin
+        ));
+        assert!(!bios.eof);
+
+        // Key ready: return it.
+        bios.console.ready = true;
+        assert!(matches!(
+            bios.call(3, &mut cpu, &mut machine.mem),
+            TrapAction::Return
+        ));
+        assert_eq!(cpu.regs.a, b'Q');
+        assert!(!bios.eof);
+    }
+
+    #[test]
+    fn conin_returns_ctrl_z_at_eof() {
+        // A scripted console with no input is at EOF: CONIN returns ^Z and flags
+        // EOF (the signal headless runs use to stop) — it must not re-trap.
+        let cfg = MachineConfig::virtual_default();
+        let mut machine = Machine::from_config(&cfg);
+        let mut bios = CpmBios::new(cfg, ScriptedConsole::default(), Disk::blank());
+        let mut cpu = Cpu::new();
+        assert!(matches!(
+            bios.call(3, &mut cpu, &mut machine.mem),
+            TrapAction::Return
+        ));
+        assert_eq!(cpu.regs.a, 0x1A);
+        assert!(bios.eof);
     }
 
     #[test]
