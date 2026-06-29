@@ -22,7 +22,7 @@ const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
 const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
 
 const HELP: &str = "\
-cpemu — a from-scratch Z80 CP/M 2.2 emulator
+CPeMulator — a from-scratch Z80 CP/M 2.2 emulator
 
 USAGE:
     cargo run -- [OPTIONS] [FILES...]
@@ -351,7 +351,7 @@ fn main() {
         }
     };
 
-    println!("cpemu — CP/M 2.2.   (Ctrl-\\ for the debug monitor)");
+    println!("CPeMulator — CP/M 2.2.   (Ctrl-\\ for the debug monitor)");
 
     // Resolve each --disk mount: load an existing image (its size picks the
     // format) or create a fresh disk (drive A bootable, other drives blank).
@@ -740,7 +740,7 @@ mod tests {
     fn parse_cli_machine_selection() {
         assert_eq!(
             parse(&["--machine=virtual"]).machine.name,
-            "cpemu virtual machine"
+            "CPeMulator virtual machine"
         );
         assert!(matches!(
             parse_cli(["--machine=kaypro".to_string()].into_iter()),

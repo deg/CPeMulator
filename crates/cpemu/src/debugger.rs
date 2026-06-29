@@ -66,7 +66,7 @@ impl Debugger {
 
     /// The one-line banner shown when the monitor is entered.
     pub fn banner(pc: u16) -> String {
-        format!("-- cpemu monitor (? for help, g to resume) -- PC={pc:04X}")
+        format!("-- CPeMulator monitor (? for help, g to resume) -- PC={pc:04X}")
     }
 
     /// Run one command `line` against `mon`, returning the text to print and what

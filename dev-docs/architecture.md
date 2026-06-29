@@ -1,12 +1,12 @@
 # Architecture
 
-This document explains how cpemu is put together as a whole system and, more
+This document explains how CPeMulator is put together as a whole system and, more
 importantly, *why* it is built this way. The individual pieces are documented
 elsewhere ([cpu-core.md](cpu-core.md) for the CPU); this is the big picture.
 
 ## The goal that drives every decision
 
-cpemu exists to **run real vintage CP/M software** — Microsoft BASIC, Turbo
+CPeMulator exists to **run real vintage CP/M software** — Microsoft BASIC, Turbo
 Pascal, WordStar, Zork — and to do so **authentically**, by booting the genuine
 Digital Research CP/M 2.2 and running it on emulated hardware. "Authentic" and
 "runs real software" sometimes pull in different directions; where they do, this
@@ -15,7 +15,7 @@ document records which way we leaned and why.
 ## The layers of a CP/M system
 
 To understand the design you have to understand how a real CP/M machine is
-layered, because cpemu mirrors that layering. From the top down:
+layered, because CPeMulator mirrors that layering. From the top down:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -25,25 +25,25 @@ layered, because cpemu mirrors that layering. From the top down:
 ├─────────────────────────────────────────────┤  │ genuine Digital Research
 │ BDOS  — kernel: files, console, system calls │  ┘ binaries, unmodified
 ├─────────────────────────────────────────────┤
-│ BIOS  — machine-specific console & disk I/O  │  ← cpemu provides this
+│ BIOS  — machine-specific console & disk I/O  │  ← CPeMulator provides this
 ├─────────────────────────────────────────────┤
-│ Hardware — CPU, RAM, console, disk           │  ← cpemu emulates this
+│ Hardware — CPU, RAM, console, disk           │  ← CPeMulator emulates this
 └─────────────────────────────────────────────┘
 ```
 
 The crucial fact: **CCP and BDOS are identical across all CP/M machines, but the
 BIOS is different on every machine.** Digital Research shipped CCP and BDOS; each
 computer manufacturer wrote their own BIOS to match their hardware. That single
-fact shapes most of cpemu's architecture.
+fact shapes most of CPeMulator's architecture.
 
 ## Decision 1: Genuine CCP+BDOS, high-level-emulated BIOS
 
-cpemu runs the **real, unmodified** CCP and BDOS binaries. It does **not**
+CPeMulator runs the **real, unmodified** CCP and BDOS binaries. It does **not**
 re-implement them in Rust. This is what makes it "really CP/M" rather than a
 CP/M-compatible interface.
 
 The BIOS is the exception. Instead of running a BIOS as Z80 code talking to
-emulated I/O chips, cpemu installs a tiny guest BIOS **stub**: each BIOS entry
+emulated I/O chips, CPeMulator installs a tiny guest BIOS **stub**: each BIOS entry
 point is a few bytes that hand control to a Rust function (a "trap"). The Rust
 side then does the real work — putting a character on your terminal, reading a
 sector from a disk-image file.
@@ -60,7 +60,7 @@ Why high-level-emulate the BIOS specifically?
   lot of work for no benefit to our goal.
 
 What we deliberately keep authentic: the *file-system semantics* live in the
-genuine BDOS, not in our code. cpemu serves raw disk **sectors**; BDOS interprets
+genuine BDOS, not in our code. CPeMulator serves raw disk **sectors**; BDOS interprets
 the CP/M directory and allocation structures itself, exactly as on real hardware.
 This matters because subtle BDOS behaviors that vintage software depends on come
 for free instead of having to be re-created.
@@ -83,7 +83,7 @@ This is implemented in `crates/cpemu/src/{machine,executor}.rs`; see
 
 ## Decision 2: Boot the way a real machine boots
 
-cpemu does not simply copy CCP and BDOS into memory at startup. It emulates the
+CPeMulator does not simply copy CCP and BDOS into memory at startup. It emulates the
 real cold-boot sequence: a small boot loader reads CCP and BDOS off the disk
 image's reserved **system tracks** and jumps to them, just as a vintage machine's
 boot ROM did. Warm boots (which CP/M performs after a program exits) reload the
@@ -93,7 +93,7 @@ Why bother, when a direct memory copy would be simpler? Two reasons:
 
 - It is the authentic experience, which is an explicit project goal.
 - It forces the disk-image layout to be real (system tracks included), which is
-  what lets cpemu work with genuine disk images rather than a bespoke format.
+  what lets CPeMulator work with genuine disk images rather than a bespoke format.
 
 The cost is that the disk-image format and the boot loader must be designed
 together; this is handled in the boot epic.
@@ -158,11 +158,11 @@ writes back to host files) — effectively a miniature file system. It is the
 single largest hidden cost in the project, so it waits until after the authentic
 disk-image path works. (Tools like RunCPM make host-directory mapping look easy
 precisely because they intercept at the BDOS level and never run a real BDOS;
-cpemu's authenticity is what makes it harder.)
+CPeMulator's authenticity is what makes it harder.)
 
 ## Decision 6: Console — your terminal, with optional fidelity
 
-CP/M programs expect to talk to a serial terminal. By default cpemu uses your
+CP/M programs expect to talk to a serial terminal. By default CPeMulator uses your
 host terminal in raw mode and passes ANSI/VT100 escape sequences through, which
 works well in any modern terminal. For screen-oriented applications that target
 an *older* terminal, `terminal.rs` translates the **TeleVideo TVI-950** code set

@@ -151,7 +151,7 @@ exerciser harness, the future monitor) must be able to observe control flow:
 ## The structured decode
 
 A naïve CPU emulator is a `match` with ~250 arms, one per opcode. That is
-error-prone to write and to read. Instead cpemu uses the **standard Z80 opcode
+error-prone to write and to read. Instead CPeMulator uses the **standard Z80 opcode
 structure** (popularized by Cristian Dinu's "Decoding Z80 Opcodes"). Every opcode
 byte decomposes into fields:
 
@@ -243,7 +243,7 @@ eventually, but a focused unit test catches them *now*, with a readable failure.
 ## Timing (T-states)
 
 Each instruction reports how many T-states (clock cycles) it consumed. The values
-encoded in the handlers are the standard documented Z80 timings. cpemu's goal is
+encoded in the handlers are the standard documented Z80 timings. CPeMulator's goal is
 *configurable-throttle* timing (run at roughly 4 MHz for authentic feel, or
 unthrottled), not cycle-perfect emulation, so these base counts are sufficient;
 we are not (yet) modeling the exact bus timing within an instruction.

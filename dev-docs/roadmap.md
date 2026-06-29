@@ -1,13 +1,13 @@
 # Roadmap
 
-This is the plan for building cpemu: the epics, the order they happen in and why,
+This is the plan for building CPeMulator: the epics, the order they happen in and why,
 their current status, and the decisions that were deliberately deferred. The
 authoritative, live source is the beads issue tracker (`bd ready`, `bd show
 <id>`); this document is the human-readable map and is kept in sync as work lands.
 
 ## Build order and why
 
-cpemu is built strictly **bottom-up**, because each layer depends on the
+CPeMulator is built strictly **bottom-up**, because each layer depends on the
 correctness of the one below it (see the layer diagram in
 [architecture.md](architecture.md#the-layers-of-a-cpm-system)):
 

@@ -1,6 +1,6 @@
 # Development workflow
 
-This document covers the practical side of working on cpemu: the toolchain, how
+This document covers the practical side of working on CPeMulator: the toolchain, how
 to build and check your work, how tasks are tracked, and the conventions the
 project follows.
 
@@ -92,7 +92,7 @@ A few conventions specific to this project:
 - Write commit *bodies* that explain what changed and why — the same clarity-over-
   brevity standard as the docs. A reader six months from now should understand the
   change from the message alone.
-- The default branch is `main`, hosted privately at `github.com/deg/cpemu`.
+- The default branch is `main`, hosted privately at `github.com/deg/CPeMulator`.
 
 The beads issue database also syncs to the git remote (via Dolt) so issue state
 travels with the repository.

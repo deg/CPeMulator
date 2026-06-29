@@ -1,8 +1,8 @@
-# cpemu developer documentation
+# CPeMulator developer documentation
 
-This directory is the home for documentation aimed at people working *on* cpemu
+This directory is the home for documentation aimed at people working *on* CPeMulator
 (as opposed to the root [`README.md`](../README.md), which is aimed at people who
-want to know what cpemu is and how to use it).
+want to know what CPeMulator is and how to use it).
 
 These documents favor **clarity and education over brevity**. The goal is that a
 developer new to emulation — or new to this codebase — can read them and
@@ -34,9 +34,9 @@ A few terms recur throughout these docs and the code:
   services, and the system-call interface programs use.
 - **BIOS** — Basic Input/Output System: the small, machine-specific layer that
   BDOS calls to actually talk to hardware (console, disk). This is the part each
-  computer vendor customized, and the part cpemu provides itself.
+  computer vendor customized, and the part CPeMulator provides itself.
 - **HLE** — High-Level Emulation: implementing a component's *behavior* in the
-  host language (Rust) instead of executing its original machine code. cpemu's
+  host language (Rust) instead of executing its original machine code. CPeMulator's
   BIOS is high-level-emulated; its CCP and BDOS are not.
 - **FCB** — File Control Block: the data structure CP/M programs use to describe
   an open file.

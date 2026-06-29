@@ -1,7 +1,7 @@
 # Vendored: CP/M 2.2 CCP + BDOS source
 
 This directory contains **third-party** source for the Digital Research CP/M 2.2
-command processor (CCP) and kernel (BDOS), vendored into cpemu so the emulator
+command processor (CCP) and kernel (BDOS), vendored into CPeMulator so the emulator
 can boot a genuine CP/M 2.2 system.
 
 ## What's here
@@ -39,7 +39,7 @@ for the verbatim text; canonical copy at <http://www.cpm.z80.de/license.html>.
 | `bdos.bin` | `0xEC00` | 3584 bytes (`0xE00`) |
 
 These are the genuine CCP and BDOS, assembled from the source here at the origins
-of cpemu's memory map (defined in `crates/cpemu/src/config.rs`). They are
+of CPeMulator's memory map (defined in `crates/cpemu/src/config.rs`). They are
 committed so that normal builds and CI never need an assembler.
 
 **How they were generated** (reproducible via `make cpm-binaries`):

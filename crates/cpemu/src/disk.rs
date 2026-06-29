@@ -245,7 +245,7 @@ impl Disk {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!(
-                    "{}: {} bytes is not a known cpemu disk image \
+                    "{}: {} bytes is not a known CPeMulator disk image \
                      ({} = 8\" floppy, {} = 8 MB hard disk)",
                     path.display(),
                     bytes.len(),

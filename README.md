@@ -1,6 +1,6 @@
-# cpemu — a CP/M 2.2 emulator in Rust
+# CPeMulator — a CP/M 2.2 emulator in Rust
 
-**cpemu** is a from-scratch emulator that runs the classic
+**CPeMulator** is a from-scratch emulator that runs the classic
 [CP/M 2.2](https://en.wikipedia.org/wiki/CP/M) operating system and the vintage
 software written for it — language interpreters, compilers, word processors, and
 games from the late 1970s and early 1980s.
@@ -54,16 +54,16 @@ broad ways to build such an emulator:
    machine that the genuine, unmodified CP/M binaries boot and run on top of it.
    This is more work but it is *actually CP/M*.
 
-cpemu takes the second approach.
+CPeMulator takes the second approach.
 
 ## Design in one paragraph
 
-cpemu emulates a **Z80 CPU** (a superset of the 8080, so it runs 8080 software
+CPeMulator emulates a **Z80 CPU** (a superset of the 8080, so it runs 8080 software
 too) and a small **virtual machine**. At startup an emulated boot loader reads
 the genuine CP/M 2.2 CCP and BDOS off a disk image's system tracks — exactly as a
-real machine's boot ROM would — and jumps into them. The one piece cpemu
+real machine's boot ROM would — and jumps into them. The one piece CPeMulator
 provides itself is the **BIOS**, the small hardware-specific layer CP/M uses for
-console and disk I/O. Rather than running a BIOS as Z80 code, cpemu uses a tiny
+console and disk I/O. Rather than running a BIOS as Z80 code, CPeMulator uses a tiny
 guest BIOS *stub* that traps into Rust ("high-level emulation"), so console
 characters go to your terminal and disk sectors are served from `.dsk` image
 files. The result is genuine CP/M running on emulated hardware, with the I/O
@@ -72,7 +72,7 @@ plumbed cleanly into the host. For the reasoning behind these choices, see
 
 ## Project status
 
-cpemu is built in dependency order: a correct CPU first, then the machine, then
+CPeMulator is built in dependency order: a correct CPU first, then the machine, then
 the OS layer. Here is the honest state of each piece.
 
 | Component                         | Status         |
@@ -174,7 +174,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 
 Flags are forwarded by `load-all.sh` too, e.g. `./scripts/load-all.sh --mhz=2`.
 
-With `--disk`, cpemu becomes a persistent, multi-drive machine:
+With `--disk`, CPeMulator becomes a persistent, multi-drive machine:
 `cargo run -- --disk=mine.dsk --disk=B:work.dsk` boots `mine.dsk` as A and
 `work.dsk` as B, and anything you create inside CP/M (edit a file with `ED`, copy
 across drives with `PIP B:=A:FILE`, write a program) is written back to the right
@@ -221,7 +221,7 @@ needs no translation at all. `--raw` disables translation entirely.
 
 ## Building and testing
 
-cpemu is a standard Rust workspace. You need a recent stable Rust toolchain
+CPeMulator is a standard Rust workspace. You need a recent stable Rust toolchain
 (edition 2024; developed against Rust 1.95).
 
 ```bash
@@ -242,7 +242,7 @@ experience, and `cargo run -- --help` for every option.
 ## Repository layout
 
 ```
-cpemu/
+CPeMulator/
 ├── Cargo.toml            Workspace manifest
 ├── README.md             You are here
 ├── Makefile              Developer tasks (make check, fmt, lint, test)
@@ -275,7 +275,7 @@ for the live breakdown and rationale):
 
 ## For developers
 
-If you want to understand or contribute to cpemu, read the developer docs:
+If you want to understand or contribute to CPeMulator, read the developer docs:
 
 - [`dev-docs/README.md`](dev-docs/README.md) — index and orientation
 - [`dev-docs/architecture.md`](dev-docs/architecture.md) — the system design and the decisions behind it
@@ -285,7 +285,7 @@ If you want to understand or contribute to cpemu, read the developer docs:
 
 ## Licensing and third-party code
 
-The cpemu source is under the MIT license; see [`LICENSE`](LICENSE) for the
+The CPeMulator source is under the MIT license; see [`LICENSE`](LICENSE) for the
 full text. The repository also vendors the
 genuine Digital Research CP/M 2.2 CCP and BDOS source under
 [`third-party/cpm22/`](third-party/cpm22/); CP/M and its derivatives are

@@ -64,7 +64,7 @@ impl MachineConfig {
     pub fn virtual_default() -> Self {
         let ccp_base = 0xE400;
         Self {
-            name: "cpemu virtual machine",
+            name: "CPeMulator virtual machine",
             memory_size: 0x1_0000,
             ccp_base,
             bdos_base: ccp_base + CCP_SIZE,             // 0xEC00
