@@ -35,7 +35,7 @@ OPTIONS:
     --mhz=N     Set the CPU clock in MHz (default 4). Lower it if a game runs
                 too fast, e.g. --mhz=2.
     --fast      Run unthrottled (as fast as the host allows).
-    --raw       Disable ADM-3A terminal translation (pass output through).
+    --raw       Disable TeleVideo/ADM-3A terminal translation (pass output through).
     --upper     Fold typed input to UPPERCASE (for old programs that expect
                 capital letters).
     --no-map-delete
@@ -139,7 +139,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             machine: MachineConfig::virtual_default(),
-            mode: TerminalMode::Adm3a,
+            mode: TerminalMode::Televideo,
             mhz: 4.0,
             throttled: true,
             upper: false,

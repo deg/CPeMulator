@@ -85,7 +85,7 @@ the OS layer. Here is the honest state of each piece.
 | Virtual machine & memory          | [x] done, tested |
 | HLE BIOS & boot                   | [x] boots to `A>` |
 | Disk subsystem                    | [x] 8"/8 MB read/write, `.dsk` mount/save, multiple drives (A..P) |
-| Console & terminal                | [x] interactive raw-TTY + ADM-3A emulation |
+| Console & terminal                | [x] interactive raw-TTY + TeleVideo TVI-950 emulation |
 | Debugger / monitor                | [x] interactive: breakpoints, step/trace, disassembly, register/memory inspect+edit (Ctrl-\\) |
 | Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
 
@@ -152,7 +152,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 | `--fast` | Run unthrottled; on exit, reports the equivalent clock for that run (e.g. *"ran unthrottled at ~995 MHz, equivalent to --mhz=995"*). Workload-dependent. |
 | `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
-| `--raw` | Disable ADM-3A terminal translation. |
+| `--raw` | Disable TeleVideo/ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
 | `--machine=NAME` | Select a machine profile (default `virtual`, the only one today; the seam for future machines). |
 | `--disk=[X:]PATH` | Mount a `.dsk` image as drive `X` (A..P; default A) and **save changes back to it on exit** — so your in-CP/M work persists. Repeatable for several drives. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
@@ -197,10 +197,13 @@ doesn't disturb the running session.
 
 ### Full-screen apps
 
-The console translates **ADM-3A** terminal codes to ANSI, so full-screen programs
-(Ladder, the Turbo Pascal editor, Multiplan) display correctly, while plain text
-and modern `ESC[` sequences pass straight through. WordStar and SuperCalc load
-but need their own terminal-install pass first (a future item).
+The console translates **TeleVideo TVI-950** terminal codes to ANSI (plus the
+ADM-3A's `^Z`/`^^` it shares lineage with), so full-screen programs (Ladder, the
+Turbo Pascal editor, PACMAN95) display correctly, while plain text and modern
+`ESC[` sequences pass straight through. The TVI-950 was one of the most common
+CP/M-era terminals, and the software that ships here targets it — some labels it
+"Microbee VDU", a TeleVideo-compatible screen. Software configured for ANSI/VT100
+needs no translation at all. `--raw` disables translation entirely.
 
 ## Building and testing
 

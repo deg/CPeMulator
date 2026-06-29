@@ -76,9 +76,9 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 ### [x] Console & terminal — `cpemu-7m4`
 - [x] Console abstraction (`Console` trait; scripted console for headless/tests)
 - [x] Interactive raw-TTY terminal front end (`TerminalConsole`; `cargo run`)
-- [x] ADM-3A → ANSI terminal emulation (`terminal.rs`) so full-screen apps
-  (Ladder, the Turbo editor) display; modern `ESC[` passes through; `--raw` opts
-  out
+- [x] TeleVideo TVI-950 (+ ADM-3A `^Z`/`^^`) → ANSI terminal emulation
+  (`terminal.rs`) so full-screen apps (Ladder, the Turbo editor, PACMAN95)
+  display; modern `ESC[` passes through; `--raw` opts out
 
 ### [ ] Debugger / monitor — `cpemu-6o2`
 The interactive frontend: breakpoints, single-step, register/memory inspect+edit,

@@ -71,7 +71,7 @@ fetch "$base/games/nemesis.zip"     # Nemesis (dungeon adventure)
 fetch "$base/games/manygame.zip"    # a collection of small games
 
 # --- iconic productivity (full-screen: best with a matching terminal) ---
-fetch "$base/text/Ws4_mbee.zip"     # WordStar 4 (Microbee — ADM-3A-compatible)
+fetch "$base/text/Ws4_mbee.zip"     # WordStar 4 (Microbee VDU = TeleVideo-950-compatible)
 fetch "$base/business/Suprcalc.zip" # SuperCalc spreadsheet
 fetch "$base/business/MULTPLAN.ZIP" # Microsoft Multiplan
 fetch "$base/dbase/dbaseii.zip"     # dBASE II database

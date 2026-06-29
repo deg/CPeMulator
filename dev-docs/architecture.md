@@ -164,10 +164,12 @@ cpemu's authenticity is what makes it harder.)
 
 CP/M programs expect to talk to a serial terminal. By default cpemu uses your
 host terminal in raw mode and passes ANSI/VT100 escape sequences through, which
-works well in any modern terminal. For screen-oriented applications that target a
-specific terminal (e.g. WordStar expecting an ADM-3A or VT100), cpemu will offer
-selectable terminal emulation that translates those escape sequences onto your
-host terminal.
+works well in any modern terminal. For screen-oriented applications that target
+an *older* terminal, `terminal.rs` translates the **TeleVideo TVI-950** code set
+(cursor addressing, the clear/erase forms, line insert/delete, half-intensity) —
+plus the ADM-3A's `^Z`/`^^` — onto your host terminal's ANSI. The TVI-950 is what
+the bundled full-screen software actually drives (some of it under the label
+"Microbee VDU", a TeleVideo-compatible screen). `--raw` disables translation.
 
 ## How a running system fits together (the eventual picture)
 

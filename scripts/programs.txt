@@ -23,8 +23,9 @@ GOTCHAS (these surprise everyone)
   - Many old programs only accept CAPITAL letters.  Answer their
     Y/N questions with a capital Y or N - or start cpemu --upper.
   - Full-screen programs (WordStar, SuperCalc, the Turbo editor)
-    expect a specific terminal.  cpemu emulates an ADM-3A, which
-    most are happy with; a few need an INSTALL step first.
+    expect a specific terminal.  cpemu emulates a TeleVideo TVI-950
+    (and the ADM-3A codes it shares), which most are happy with; a
+    few need an INSTALL step first, or can be set to ANSI/VT100.
   - Action games run at CPU speed.  Too fast?  Restart cpemu
     with  --mhz=2  (or even --mhz=1).
 
@@ -109,9 +110,9 @@ DBASE
    skip.  You get a  .  prompt; try  ? "HELLO" .  Leave with the
    QUIT command (don't just Ctrl-C, or you may lose data).
 MP
-   Microsoft Multiplan, a spreadsheet.  Full-screen; it drives an
-   ADM-3A so it should display.  Commands are the menu along the
-   bottom - Quit from there.
+   Microsoft Multiplan, a spreadsheet.  Full-screen; it drives a
+   TeleVideo/ADM-3A so it should display.  Commands are the menu
+   along the bottom - Quit from there.
 SC
    SuperCalc spreadsheet.  Not pre-configured for a terminal in
    this build, so it may not display correctly yet.
