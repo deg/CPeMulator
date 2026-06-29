@@ -77,15 +77,21 @@ fn drive_letter(drive: u8) -> char {
     (b'A' + drive) as char
 }
 
-/// CP/M marks the end of a text file with `^Z` (0x1A). Tools that read to that
-/// marker treat a raw host file's trailing zero-padding as garbage — most sharply
-/// the CCP's SUBMIT mechanism, which then writes an empty `$$$.SUB` and chains
-/// nothing. Host binaries (`.COM`, `.DAT`, …) must stay byte-exact, so we only
-/// append `^Z` to `.SUB` batch files, which are always text and fail silently
-/// without it. (A `.SUB` authored in-world with `ED` is already terminated.)
-fn terminate_if_submit(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
+/// Extensions that name CP/M *text* files, which end at a `^Z` marker. A raw host
+/// file lacks it, so `TYPE` (and SUBMIT, ED, …) read past the content into the
+/// disk's zero-padding as garbage. We append `^Z` to these on import; everything
+/// else — `.COM`, `.DAT`, and other binaries — must stay byte-exact, so the rule
+/// is a strict extension allow-list, not a guess.
+const TEXT_EXTENSIONS: &[&str] = &["SUB", "TXT", "DOC", "PRN", "ASC"];
+
+/// Append a `^Z` end-of-text marker to a host file if its extension names a CP/M
+/// text type and it isn't already terminated. (A file authored in-world with `ED`
+/// already has one.) Binaries are returned untouched.
+fn terminate_text_file(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
     const EOF: u8 = 0x1A;
-    if name.to_ascii_uppercase().ends_with(".SUB") && bytes.last() != Some(&EOF) {
+    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_uppercase();
+    let is_text = name.contains('.') && TEXT_EXTENSIONS.contains(&ext.as_str());
+    if is_text && bytes.last() != Some(&EOF) {
         bytes.push(EOF);
     }
     bytes
@@ -167,7 +173,7 @@ fn main() {
             .unwrap_or_default();
         match std::fs::read(path) {
             Ok(bytes) => {
-                let bytes = terminate_if_submit(&name, bytes);
+                let bytes = terminate_text_file(&name, bytes);
                 match disk_a.add_file(&name, &bytes) {
                     Ok(()) => println!("  loaded {} onto A: ({} bytes)", name, bytes.len()),
                     Err(e) => eprintln!("  cannot add {path}: {e:?}"),
@@ -396,7 +402,7 @@ fn read_line<C: Console>(con: &mut C) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_disk_spec, terminate_if_submit};
+    use super::{parse_disk_spec, terminate_text_file};
 
     #[test]
     fn disk_spec_parses_drive_prefix() {
@@ -410,17 +416,21 @@ mod tests {
     }
 
     #[test]
-    fn submit_files_get_a_ctrl_z() {
-        // .SUB without ^Z gains one (so SUBMIT reads the commands, not padding).
+    fn text_files_get_a_ctrl_z() {
+        // .SUB and .TXT (and other text types) without ^Z gain one, so SUBMIT/TYPE
+        // read the content and not the disk's zero-padding.
         assert_eq!(
-            terminate_if_submit("B.SUB", b"STAT\r\n".to_vec()),
+            terminate_text_file("B.SUB", b"STAT\r\n".to_vec()),
             b"STAT\r\n\x1a"
         );
+        assert_eq!(terminate_text_file("READ.TXT", b"hi".to_vec()), b"hi\x1a");
         // Already terminated -> left unchanged (no double ^Z).
-        assert_eq!(terminate_if_submit("B.SUB", b"X\x1a".to_vec()), b"X\x1a");
+        assert_eq!(terminate_text_file("B.SUB", b"X\x1a".to_vec()), b"X\x1a");
         // Match is case-insensitive on the extension.
-        assert_eq!(terminate_if_submit("b.sub", b"X".to_vec()), b"X\x1a");
-        // Non-.SUB files (e.g. a binary) are left byte-exact.
-        assert_eq!(terminate_if_submit("FOO.COM", vec![1, 2, 3]), vec![1, 2, 3]);
+        assert_eq!(terminate_text_file("notes.txt", b"X".to_vec()), b"X\x1a");
+        // Binaries and unknown/dotless names are left byte-exact.
+        assert_eq!(terminate_text_file("FOO.COM", vec![1, 2, 3]), vec![1, 2, 3]);
+        assert_eq!(terminate_text_file("ZORK1.DAT", vec![5, 6]), vec![5, 6]);
+        assert_eq!(terminate_text_file("READSUB", vec![7]), vec![7]); // no dot
     }
 }
