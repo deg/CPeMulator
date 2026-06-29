@@ -323,7 +323,7 @@ fn main() {
         if throttle.is_some() {
             format!("{mhz} MHz")
         } else {
-            "unthrottled — actual speed reported on exit".to_string()
+            "unthrottled — real-time factor reported on exit".to_string()
         }
     );
 
@@ -417,11 +417,21 @@ fn main() {
     if !throttled {
         let secs = active.as_secs_f64();
         if secs > 0.001 && cycles > 100_000 {
+            // `sustained` is emulated cycles per real second — the fastest clock
+            // this workload runs in real time. It's mix-dependent (a syscall-heavy
+            // run is far slower per cycle than a tight loop), so we anchor it to
+            // the reference clock as a real-time factor: the headroom you have.
+            let sustained = cycles as f64 / secs / 1e6;
+            let factor = sustained / mhz;
+            let fx = if factor >= 10.0 {
+                format!("{factor:.0}")
+            } else {
+                format!("{factor:.1}")
+            };
             println!(
-                "cpemu: ran unthrottled at ~{:.0} MHz ({:.0}M cycles in {:.3}s of execution)",
-                cycles as f64 / secs / 1e6,
-                cycles as f64 / 1e6,
-                secs
+                "cpemu: this workload ran ~{fx}x faster than a {mhz} MHz Z80 \
+                 (~{sustained:.0} MHz sustained, {:.1}M cycles / {secs:.3}s)",
+                cycles as f64 / 1e6
             );
         }
     }

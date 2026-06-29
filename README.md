@@ -146,7 +146,7 @@ Run `cargo run -- --help` for the full list. The most useful:
 | Flag | Effect |
 |------|--------|
 | `--mhz=N` | CPU clock in MHz (default 4). Lower it (`--mhz=2`) if a game runs too fast. |
-| `--fast` | Run unthrottled; on exit, reports the speed actually achieved (e.g. *"~300 MHz"*). |
+| `--fast` | Run unthrottled; on exit, reports the real-time factor for that run (e.g. *"~118x faster than a 4 MHz Z80, ~473 MHz sustained"*). The rate is workload-dependent — it's the headroom you had, not a fixed clock. |
 | `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
 | `--raw` | Disable ADM-3A terminal translation. |
