@@ -382,13 +382,12 @@ fn main() {
             Err(e) => eprintln!("  cannot read {path}: {e}"),
         }
     }
-    let mut throttle = throttled.then(|| Throttle::new((mhz * 1_000_000.0) as u64));
     println!(
         "Booting drive A:  ({})",
-        if throttle.is_some() {
+        if throttled {
             format!("{mhz} MHz")
         } else {
-            "unthrottled — real-time factor reported on exit".to_string()
+            "unthrottled — effective clock reported on exit".to_string()
         }
     );
 
@@ -441,10 +440,15 @@ fn main() {
     let mut dbg = Debugger::new();
     let conin = machine.bios_vector(3);
 
+    // Create the throttle here, immediately before stepping begins — not earlier
+    // — so its baseline clock isn't skewed by the startup benchmark and setup,
+    // which would otherwise make the start of the run sprint to "catch up".
+    let mut throttle = throttled.then(|| Throttle::new((mhz * 1_000_000.0) as u64));
+
     // Run the CP/M session, dropping into the debug monitor on the break key
     // (Ctrl-\) or a breakpoint, until the machine stops or the user quits.
-    // `active` accumulates only the wall time spent executing, so the unthrottled
-    // speed report measures actual emulation throughput.
+    // `active` accumulates only the wall time spent executing, so the speed
+    // report measures actual emulation, not idle/monitor time.
     let mut active = Duration::ZERO;
     let outcome = loop {
         match run_until_pause(&mut mon, conin, &mut throttle, &mut active) {
@@ -498,26 +502,21 @@ fn main() {
     };
     println!("\r\ncpemu: {exit}.");
 
-    // When unthrottled, report the speed actually achieved: cycles run divided by
-    // the active (executing) wall time. Skip it when too little ran to be useful.
-    if !throttled {
-        let secs = active.as_secs_f64();
-        if secs > 0.001 && cycles > 100_000 {
-            // `sustained` is emulated cycles per real second — the fastest clock
-            // this workload runs in real time. It's mix-dependent (a syscall-heavy
-            // run is far slower per cycle than a tight loop), so we anchor it to
-            // the reference clock as a real-time factor: the headroom you have.
-            let sustained = cycles as f64 / secs / 1e6;
-            let factor = sustained / mhz;
-            let fx = if factor >= 10.0 {
-                format!("{factor:.0}")
-            } else {
-                format!("{factor:.1}")
-            };
+    // Report the clock the run actually achieved: emulated cycles divided by the
+    // active (executing) wall time. Throttled, this verifies the requested clock;
+    // unthrottled, it's the equivalent --mhz. Skip it when too little ran.
+    let secs = active.as_secs_f64();
+    if secs > 0.0005 && cycles > 100_000 {
+        let achieved = cycles as f64 / secs / 1e6;
+        if !throttled {
             println!(
-                "cpemu: this workload ran ~{fx}x faster than a {mhz} MHz Z80 \
-                 (~{sustained:.0} MHz sustained, {:.1}M cycles / {secs:.3}s)",
-                cycles as f64 / 1e6
+                "cpemu: ran unthrottled at ~{achieved:.0} MHz (equivalent to --mhz={achieved:.0})"
+            );
+        } else if achieved >= mhz * 0.9 {
+            println!("cpemu: ran at ~{achieved:.1} MHz, matching your {mhz} MHz setting");
+        } else {
+            println!(
+                "cpemu: ran at only ~{achieved:.0} MHz — the host couldn't sustain your {mhz} MHz setting"
             );
         }
     }
