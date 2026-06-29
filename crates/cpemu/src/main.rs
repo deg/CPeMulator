@@ -13,6 +13,7 @@ use cpemu::monitor::{Monitor, StopReason};
 use cpemu::terminal::TerminalMode;
 use cpemu::throttle::Throttle;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 /// The genuine CP/M 2.2 CCP and BDOS, assembled at our memory-map origins.
 const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
@@ -41,6 +42,9 @@ OPTIONS:
                 erases cleanly.
     --floppy    Use a small 8\" floppy (~241 KB) instead of the default 8 MB
                 disk.
+    --machine=NAME
+                Select a machine profile (default: virtual). Only \"virtual\"
+                exists today; this is the seam for future machines.
     --disk=[X:]PATH
                 Mount a .dsk image as drive X (A..P; default A) and save changes
                 back to it on exit. Repeatable, e.g. --disk=game.dsk
@@ -102,9 +106,23 @@ fn terminate_text_file(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
     bytes
 }
 
-/// Everything the command line and config file decide: terminal/CPU options plus
-/// the disks and host files to place on them.
+/// A named machine profile: a name and a constructor for its [`MachineConfig`].
+type Machine = (&'static str, fn() -> MachineConfig);
+
+/// Machine profiles selectable with `--machine`. Only the built-in virtual
+/// machine exists today; alternate profiles (other memory maps and BIOSes, e.g.
+/// a Kaypro or Altair) would register here.
+const MACHINES: &[Machine] = &[("virtual", MachineConfig::virtual_default)];
+
+/// Look up a machine profile by name.
+fn machine_by_name(name: &str) -> Option<MachineConfig> {
+    MACHINES.iter().find(|(n, _)| *n == name).map(|(_, f)| f())
+}
+
+/// Everything the command line and config file decide: machine and terminal/CPU
+/// options plus the disks and host files to place on them.
 struct Config {
+    machine: MachineConfig,
     mode: TerminalMode,
     mhz: f64,
     throttled: bool,
@@ -118,6 +136,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            machine: MachineConfig::virtual_default(),
             mode: TerminalMode::Adm3a,
             mhz: 4.0,
             throttled: true,
@@ -153,6 +172,17 @@ fn parse_cli(args: impl Iterator<Item = String>) -> Cli {
             "--upper" => c.upper = true,
             "--no-map-delete" => c.map_delete = false,
             "--floppy" => c.format = DiskFormat::floppy_8inch(),
+            _ if arg.starts_with("--machine=") => match machine_by_name(&arg[10..]) {
+                Some(m) => c.machine = m,
+                None => {
+                    let names: Vec<&str> = MACHINES.iter().map(|(n, _)| *n).collect();
+                    return Cli::Error(format!(
+                        "unknown machine '{}' (available: {})",
+                        &arg[10..],
+                        names.join(", ")
+                    ));
+                }
+            },
             _ if arg.starts_with("--disk=") => c.disk_mounts.push(parse_disk_spec(&arg[7..])),
             _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
                 Ok(n) if n > 0.0 => c.mhz = n,
@@ -216,6 +246,7 @@ fn main() {
     );
 
     let Config {
+        machine,
         mode,
         mhz,
         throttled,
@@ -292,15 +323,14 @@ fn main() {
         if throttle.is_some() {
             format!("{mhz} MHz")
         } else {
-            "unthrottled".to_string()
+            "unthrottled — actual speed reported on exit".to_string()
         }
     );
 
     // Check the mounted drives' BIOS structures fit above the jump table before
     // touching the terminal, so the error prints in cooked mode.
-    let config = MachineConfig::virtual_default();
     let needed = work_area_bytes(std::iter::once(&disk_a).chain(extras.iter().map(|(_, d)| d)));
-    let capacity = config.memory_size - (config.bios_base as usize + 0x0100);
+    let capacity = machine.memory_size - (machine.bios_base as usize + 0x0100);
     if needed > capacity {
         eprintln!(
             "cpemu: the mounted drives need {needed} bytes of BIOS work area but only \
@@ -317,18 +347,22 @@ fn main() {
         }
     };
 
-    let mut bios = CpmBios::new(config, console, disk_a);
+    let mut bios = CpmBios::new(machine, console, disk_a);
     for (drive, disk) in extras {
         bios.mount(drive, disk);
     }
-    let mut mon = Monitor::new(cold_boot_bios(config, bios));
+    let mut mon = Monitor::new(cold_boot_bios(machine, bios));
     let mut dbg = Debugger::new();
-    let conin = config.bios_vector(3);
+    let conin = machine.bios_vector(3);
 
     // Run the CP/M session, dropping into the debug monitor on the break key
     // (Ctrl-\) or a breakpoint, until the machine stops or the user quits.
+    // `idle_ms` accumulates time spent parked at the prompt, so the unthrottled
+    // speed report measures actual execution, not the operator's think time.
+    let started = Instant::now();
+    let mut idle_ms = 0u64;
     let outcome = loop {
-        match run_until_pause(&mut mon, conin, &mut throttle) {
+        match run_until_pause(&mut mon, conin, &mut throttle, &mut idle_ms) {
             Pause::Eof => break Outcome::Eof,
             Pause::Halted => break Outcome::Halted,
             Pause::Stopped => break Outcome::Stopped,
@@ -364,6 +398,7 @@ fn main() {
             })
             .collect()
     };
+    let cycles = mon.exec.cpu.cycles;
     drop(mon); // restores cooked terminal mode
 
     let exit = match outcome {
@@ -377,6 +412,24 @@ fn main() {
         }
     };
     println!("\r\ncpemu: {exit}.");
+
+    // When unthrottled, report the speed actually achieved: cycles run divided by
+    // active (non-idle) wall time. Skip it when too little ran to be meaningful.
+    if !throttled {
+        let active = started
+            .elapsed()
+            .saturating_sub(Duration::from_millis(idle_ms));
+        let secs = active.as_secs_f64();
+        if secs > 0.01 && cycles > 500_000 {
+            println!(
+                "cpemu: ran unthrottled at ~{:.0} MHz ({:.0}M cycles in {:.2}s of execution)",
+                cycles as f64 / secs / 1e6,
+                cycles as f64 / 1e6,
+                secs
+            );
+        }
+    }
+
     for (path, bytes) in saves {
         match disk::write_image(Path::new(&path), &bytes) {
             Ok(()) => println!("cpemu: saved disk image to {path}"),
@@ -414,6 +467,7 @@ fn run_until_pause<C: Console>(
     mon: &mut Monitor<CpmBios<C>>,
     conin: u16,
     throttle: &mut Option<Throttle>,
+    idle_ms: &mut u64,
 ) -> Pause {
     // Don't immediately re-trigger a breakpoint we're resuming from: the first
     // instruction always runs before breakpoints are checked again.
@@ -430,7 +484,8 @@ fn run_until_pause<C: Console>(
         }
         skip_bp = false;
         if mon.pc() == conin && !mon.exec.bios.console.status() {
-            std::thread::sleep(std::time::Duration::from_millis(2));
+            std::thread::sleep(Duration::from_millis(2));
+            *idle_ms += 2;
             continue;
         }
         match mon.step() {
@@ -540,6 +595,18 @@ mod tests {
         assert_eq!(c.mhz, 2.0);
         assert_eq!(c.disk_mounts, vec![(1, "x.dsk".to_string())]);
         assert_eq!(c.files, vec!["ZORK1.COM".to_string()]);
+    }
+
+    #[test]
+    fn parse_cli_machine_selection() {
+        assert_eq!(
+            parse(&["--machine=virtual"]).machine.name,
+            "cpemu virtual machine"
+        );
+        assert!(matches!(
+            parse_cli(["--machine=kaypro".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
     }
 
     #[test]

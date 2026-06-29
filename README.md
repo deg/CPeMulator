@@ -146,11 +146,12 @@ Run `cargo run -- --help` for the full list. The most useful:
 | Flag | Effect |
 |------|--------|
 | `--mhz=N` | CPU clock in MHz (default 4). Lower it (`--mhz=2`) if a game runs too fast. |
-| `--fast` | Run unthrottled. |
+| `--fast` | Run unthrottled; on exit, reports the speed actually achieved (e.g. *"~300 MHz"*). |
 | `--upper` | Fold typed input to UPPERCASE (for old programs that expect capitals). |
 | `--no-map-delete` | Keep CP/M's authentic RUBOUT (Delete re-echoes the char). By default Delete is mapped to a clean Backspace. |
 | `--raw` | Disable ADM-3A terminal translation. |
 | `--floppy` | Use a small 8" floppy instead of the default 8 MB disk. |
+| `--machine=NAME` | Select a machine profile (default `virtual`, the only one today; the seam for future machines). |
 | `--disk=[X:]PATH` | Mount a `.dsk` image as drive `X` (A..P; default A) and **save changes back to it on exit** — so your in-CP/M work persists. Repeatable for several drives. A new `PATH` starts a fresh disk; an existing image's size selects its format. |
 | `--config=PATH` | Read options from a config file before the command line (CLI flags override it). Defaults to `~/.config/cpemu/config`. One directive per line (`#` comments), each a flag without the `--` — e.g. `mhz=2`, `upper`, `disk=B:work.dsk`. |
 
