@@ -1,6 +1,6 @@
 # cpemu — developer tasks. Mirrors what CI enforces.
 
-.PHONY: all check fmt fmt-check lint test build clean
+.PHONY: all check fmt fmt-check lint test build clean wordstar
 
 all: check
 
@@ -29,6 +29,12 @@ build:
 
 clean:
 	cargo clean
+
+# Install the fetched WordStar for the ANSI/VT-100 terminal, in place. The
+# downloaded edition ships uninstalled; this drives its own WINSTALL inside the
+# emulator so its full-screen editor works. Run after scripts/fetch-software.sh.
+wordstar:
+	cargo run --release -p cpemu --example install-wordstar -- software
 
 # Regenerate the genuine CP/M 2.2 CCP+BDOS binaries from the vendored source.
 # Requires Macro Assembler AS (`asl` + `p2bin`) on PATH — see

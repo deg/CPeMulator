@@ -104,6 +104,7 @@ The fun part. Two scripts take you from nothing to a fully-loaded CP/M machine:
 
 ```bash
 ./scripts/fetch-software.sh   # once: download a library of classic CP/M software
+make wordstar                 # once (optional): install WordStar for ANSI/VT-100
 ./scripts/load-all.sh         # boot CP/M with the whole library on drive A:
 ```
 

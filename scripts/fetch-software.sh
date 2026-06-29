@@ -76,19 +76,28 @@ fetch "$base/games/manygame.zip"    # a collection of small games
 # directly — OUT to the 6545 CRTC and block-writes to banked PCG RAM at ~0xF9xx —
 # which on a generic CP/M machine has no effect and instead corrupts the BDOS,
 # hanging WordStar at launch (see bead cpemu-8ad). This standard build talks only
-# to the BIOS console, so it is portable. It ships UNINSTALLED; install it once
-# for a terminal with WINSTALL: run WINSTALL, answer WS / WS, then Console (A) ->
-# Monitor selection (A) -> "ANSI Standard (DEC VT-100)" (C) -> X -> X -> Y. ANSI
-# passes straight through cpemu's translator to any modern terminal. We take only
-# the program + installer files (the speller, dictionary, and docs are large and
-# optional, and the EXTRAS filter drops the sample .doc files).
+# to the BIOS console, so it is portable. It ships UNINSTALLED (no terminal
+# configured, so its editor can't position the cursor); `make wordstar` installs
+# it for "ANSI Standard (DEC VT-100)" by driving WordStar's own WINSTALL inside
+# the emulator (see crates/cpemu/examples/install-wordstar.rs). ANSI passes
+# straight through cpemu's translator to any modern terminal. We take only the
+# program + installer files (the speller, dictionary, and docs are optional).
 wsurl="https://archive.org/download/wordstar-release-4-for-cpm/WordStar%20Release%204%20for%20CPM%20%28Loose%20Files%29.zip"
 wszip="$ZIPS/wordstar4.zip"
 printf '==> %-28s ' "wordstar4 (archive.org)"
 if [ -s "$wszip" ] || curl -fsSL --connect-timeout 15 --max-time 180 -o "$wszip" "$wsurl" 2>/dev/null; then
-  # shellcheck disable=SC2086
-  unzip -o -j -C -d "$DEST" "$wszip" "*/01_Program/*" "*/02_Install/*" -x $EXTRAS >/dev/null 2>&1
-  echo "ok"
+  # Extract to a temp dir, uppercase the names (the loose files are lowercase;
+  # CP/M is uppercase by convention and the installer looks for WS.COM), then
+  # sort programs onto the disk and the sample/tutorial docs to extras/. A single
+  # unzip can't both include-by-path and reliably exclude-by-extension, so we
+  # sort by extension afterwards.
+  wstmp="$(mktemp -d)"
+  unzip -o -j -C -d "$wstmp" "$wszip" "*/01_Program/*" "*/02_Install/*" >/dev/null 2>&1
+  for f in "$wstmp"/*; do mv -f "$f" "$wstmp/$(basename "$f" | tr 'a-z' 'A-Z')" 2>/dev/null; done
+  mv -f "$wstmp"/*.COM "$wstmp"/*.OVR "$wstmp"/*.XCL "$DEST/" 2>/dev/null
+  mv -f "$wstmp"/*.DOC "$wstmp"/*.TST "$EXTRA_DIR/" 2>/dev/null
+  rm -rf "$wstmp"
+  echo "ok (run 'make wordstar' to install it for ANSI/VT-100)"
 else
   echo "SKIPPED (download failed/timed out)"
 fi

@@ -117,11 +117,12 @@ SC
    SuperCalc spreadsheet.  Not pre-configured for a terminal in
    this build, so it may not display correctly yet.
 WS
-   WordStar 4 word processor (generic edition, pre-installed for the
-   ANSI/VT-100 terminal, which cpemu passes straight through).  Full-
-   screen.  To re-install for a different terminal, run WINSTALL and
-   pick one from its Console menu.  Commands are Ctrl-key combos;
-   ^KX saves and exits, ^KQ quits without saving.
+   WordStar 4 word processor (generic edition).  Full-screen.  It is
+   downloaded UNINSTALLED; run "make wordstar" once to install it for
+   the ANSI/VT-100 terminal (which cpemu passes straight through).  To
+   re-install for a different terminal, run WINSTALL and pick one from
+   its Console menu.  Commands are Ctrl-key combos; ^KX saves and
+   exits, ^KQ quits without saving.
 
 ---------------- TEXT TOOLS ------------------------------------
 SPELL  FILE      Check spelling (Oasis "The Word Plus").  Lists
