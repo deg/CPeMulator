@@ -151,6 +151,11 @@ impl Default for Config {
     }
 }
 
+/// Upper bound on `--mhz`. Far above any real or emulated Z80 (the throttle just
+/// saturates past the host's capacity anyway); its job is to reject typo'd or
+/// nonsensical values rather than accept them silently.
+const MAX_MHZ: f64 = 100_000.0;
+
 /// The outcome of parsing arguments.
 enum Cli {
     /// Run with this configuration.
@@ -187,8 +192,13 @@ fn parse_cli(args: impl Iterator<Item = String>) -> Cli {
             },
             _ if arg.starts_with("--disk=") => c.disk_mounts.push(parse_disk_spec(&arg[7..])),
             _ if arg.starts_with("--mhz=") => match arg[6..].parse::<f64>() {
-                Ok(n) if n > 0.0 => c.mhz = n,
-                _ => return Cli::Error(format!("bad --mhz value: {}", &arg[6..])),
+                Ok(n) if n > 0.0 && n <= MAX_MHZ => c.mhz = n,
+                _ => {
+                    return Cli::Error(format!(
+                        "--mhz must be a number in 0 < N <= {MAX_MHZ:.0} (got '{}')",
+                        &arg[6..]
+                    ));
+                }
             },
             _ if arg.starts_with("--") => {
                 return Cli::Error(format!("unknown option {arg} (try --help)"));
@@ -508,15 +518,23 @@ fn main() {
     let secs = active.as_secs_f64();
     if secs > 0.0005 && cycles > 100_000 {
         let achieved = cycles as f64 / secs / 1e6;
+        // A ±10% band around the requested clock (wide enough to absorb short-run
+        // measurement noise) verifies the throttle in *both* directions: too slow
+        // means the host can't keep up; too fast means it under-paced — the
+        // startup-skew bug this feature exists to catch.
         if !throttled {
             println!(
                 "cpemu: ran unthrottled at ~{achieved:.0} MHz (equivalent to --mhz={achieved:.0})"
+            );
+        } else if achieved > mhz * 1.1 {
+            println!(
+                "cpemu: ran at ~{achieved:.1} MHz — faster than your {mhz} MHz setting (throttle under-paced)"
             );
         } else if achieved >= mhz * 0.9 {
             println!("cpemu: ran at ~{achieved:.1} MHz, matching your {mhz} MHz setting");
         } else {
             println!(
-                "cpemu: ran at only ~{achieved:.0} MHz — the host couldn't sustain your {mhz} MHz setting"
+                "cpemu: ran at only ~{achieved:.1} MHz — the host couldn't sustain your {mhz} MHz setting"
             );
         }
     }
@@ -735,6 +753,22 @@ mod tests {
             parse_cli(["--mhz=fast".to_string()].into_iter()),
             Cli::Error(_)
         ));
+        // --mhz must be a positive, finite, in-range number: reject 0, absurdly
+        // large values (which would otherwise saturate the f64->u64 cast), and inf.
+        assert!(matches!(
+            parse_cli(["--mhz=0".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
+        assert!(matches!(
+            parse_cli(["--mhz=1e15".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
+        assert!(matches!(
+            parse_cli(["--mhz=inf".to_string()].into_iter()),
+            Cli::Error(_)
+        ));
+        // A high-but-sane value is still accepted.
+        assert_eq!(parse(&["--mhz=1000"]).mhz, 1000.0);
     }
 
     #[test]
