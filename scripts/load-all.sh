@@ -6,7 +6,8 @@
 #
 # The default drive is now an 8 MB hard disk (the CP/M 2.2 maximum), which holds
 # the entire ~460 KB software collection with room to spare. Any flags you pass
-# (e.g. --mhz=2, --raw, --floppy) are forwarded to the emulator.
+# (e.g. --mhz=2, --raw, --floppy) are forwarded to the emulator. Builds optimized
+# (--release) by default; set CPEMU_DEBUG=1 for the unoptimized debug build.
 set -e
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)/software"
@@ -20,5 +21,7 @@ for f in "$DIR"/*; do
 done
 [ -n "$files" ] || { echo "No files in $DIR — run scripts/fetch-software.sh first."; exit 1; }
 
+rel="--release"
+[ -n "${CPEMU_DEBUG:-}" ] && rel=""
 # shellcheck disable=SC2086
-exec cargo run --release -p cpemu -- "$@" $files
+exec cargo run $rel -p cpemu -- "$@" $files

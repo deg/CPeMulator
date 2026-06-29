@@ -1,8 +1,24 @@
 # cpemu — developer tasks. Mirrors what CI enforces.
 
-.PHONY: all check fmt fmt-check lint test build clean wordstar
+.PHONY: all check fmt fmt-check lint test build clean wordstar setup fetch run play help
 
 all: check
+
+# ---------------------------------------------------------------------------
+# Running cpemu. Override these on the command line, e.g.
+#   make play MHZ=2              full suite, CPU slowed to 2 MHz (action games)
+#   make play FAST=1            full suite, unthrottled (host speed)
+#   make run  ARGS=--arrows     bare CP/M, arrow keys -> WordStar diamond
+#   make run  PROFILE=debug     unoptimized build (faster to compile, slower run)
+PROFILE ?= release   # release (optimized) | debug (unoptimized)
+MHZ     ?=           # CPU clock in MHz (cpemu's default is 4)
+FAST    ?=           # any value -> run unthrottled, overriding MHZ
+ARGS    ?=           # extra cpemu flags (see `cargo run -- --help`)
+_RELEASE := $(if $(filter debug,$(PROFILE)),,--release)
+_SPEED   := $(if $(FAST),--fast,$(if $(MHZ),--mhz=$(MHZ),))
+_CPEMU   := $(_SPEED) $(ARGS)
+_DBG     := $(if $(filter debug,$(PROFILE)),CPEMU_DEBUG=1,)
+# ---------------------------------------------------------------------------
 
 # Full local gate — run before pushing. Matches the CI workflow.
 check: fmt-check lint test
@@ -30,11 +46,43 @@ build:
 clean:
 	cargo clean
 
+# One-time data prep from a bare repo: download the software library, then
+# install WordStar for the ANSI terminal. (Needs network; retroarchive.org for
+# most items, the Internet Archive for WordStar, bdsoft.com for BDS C.)
+setup:
+	./scripts/fetch-software.sh
+	$(MAKE) wordstar
+
+# Just download the software library into ./software/ (gitignored).
+fetch:
+	./scripts/fetch-software.sh
+
 # Install the fetched WordStar for the ANSI/VT-100 terminal, in place. The
 # downloaded edition ships uninstalled; this drives its own WINSTALL inside the
 # emulator so its full-screen editor works. Run after scripts/fetch-software.sh.
 wordstar:
 	cargo run --release -p cpemu --example install-wordstar -- software
+
+# Boot a bare interactive CP/M session (no extra software loaded).
+run:
+	cargo run $(_RELEASE) -p cpemu -- $(_CPEMU)
+
+# Boot CP/M with the whole fetched software suite on drive A: (run `make setup`
+# first). Honors PROFILE/MHZ/FAST/ARGS (see the variables above).
+play:
+	$(_DBG) ./scripts/load-all.sh $(_CPEMU)
+
+help:
+	@echo "Setup (once, from a bare repo):"
+	@echo "  make setup                 download the library + install WordStar"
+	@echo "Run:"
+	@echo "  make play                  boot CP/M with the whole software suite"
+	@echo "  make run                   boot a bare CP/M session"
+	@echo "Options (override on the command line):"
+	@echo "  MHZ=2   slow the CPU      FAST=1   unthrottled      PROFILE=debug"
+	@echo "  ARGS=--arrows  (extra cpemu flags; see 'cargo run -- --help')"
+	@echo "  e.g.  make play MHZ=2      make run ARGS=--arrows"
+	@echo "Dev gate:  make check        (fmt-check + clippy + tests)"
 
 # Regenerate the genuine CP/M 2.2 CCP+BDOS binaries from the vendored source.
 # Requires Macro Assembler AS (`asl` + `p2bin`) on PATH — see

@@ -100,23 +100,35 @@ number.
 
 ## Running classic CP/M software
 
-The fun part. Two scripts take you from nothing to a fully-loaded CP/M machine:
+The fun part. From a bare checkout, two `make` targets take you from nothing to a
+fully-loaded CP/M machine:
 
 ```bash
-./scripts/fetch-software.sh   # once: download a library of classic CP/M software
-make wordstar                 # once (optional): install WordStar for ANSI/VT-100
-./scripts/load-all.sh         # boot CP/M with the whole library on drive A:
+make setup    # once: download a library of classic CP/M software + install WordStar
+make play     # boot CP/M with the whole library on drive A:
 ```
 
-`fetch-software.sh` pulls a library of programs from the
-[CP/M archive](http://www.retroarchive.org/cpm/) into a (gitignored) `software/`
-directory and writes a `PROGRAMS.TXT` guide; `load-all.sh` copies them onto drive
-A: and boots. The programs (~2.5 MB) fit comfortably on the default **8 MB** drive
-(about one partition of a ~$10,000 1980 Corvus Winchester — the largest a single
-CP/M 2.2 drive can be), leaving room to actually work. Non-program files that come
-in the archives — scanned manuals, source, docs — are kept in `software/extras/`
-for browsing but are **not** loaded onto the disk. Both scripts are forgiving:
-the fetch tolerates the occasionally-flaky archive and reuses cached downloads.
+`make setup` runs `scripts/fetch-software.sh` — which pulls programs from the
+[CP/M archive](http://www.retroarchive.org/cpm/) and the Internet Archive into a
+(gitignored) `software/` directory and writes a `PROGRAMS.TXT` guide — then
+`make wordstar`, which installs WordStar for the ANSI terminal. `make play`
+(`scripts/load-all.sh`) copies everything onto drive A: and boots. The programs
+(~2.5 MB) fit comfortably on the default **8 MB** drive (about one partition of a
+~$10,000 1980 Corvus Winchester — the largest a single CP/M 2.2 drive can be),
+leaving room to actually work. Non-program files from the archives — scanned
+manuals, source, docs — are kept in `software/extras/` for browsing but are
+**not** loaded onto the disk. The fetch tolerates the occasionally-flaky archive
+and reuses cached downloads.
+
+Tune how it runs by overriding `make` variables (`make help` lists them):
+
+```bash
+make play MHZ=2          # slow the CPU to 2 MHz (for fast action games)
+make play FAST=1         # run unthrottled, at host speed
+make play ARGS=--arrows  # map arrow keys to WordStar's cursor diamond (editors)
+make run                 # a bare CP/M session, no extra software loaded
+make run PROFILE=debug   # an unoptimized build (quicker to compile while hacking)
+```
 
 Once you're at the `A>` prompt:
 
