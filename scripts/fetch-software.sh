@@ -71,7 +71,27 @@ fetch "$base/games/nemesis.zip"     # Nemesis (dungeon adventure)
 fetch "$base/games/manygame.zip"    # a collection of small games
 
 # --- iconic productivity (full-screen: best with a matching terminal) ---
-fetch "$base/text/Ws4_mbee.zip"     # WordStar 4 (Microbee VDU = TeleVideo-950-compatible)
+# WordStar 4.0, the GENERIC (US) edition, from the Internet Archive. We used to
+# fetch the Microbee edition (Ws4_mbee), but it pokes Microbee video hardware
+# directly — OUT to the 6545 CRTC and block-writes to banked PCG RAM at ~0xF9xx —
+# which on a generic CP/M machine has no effect and instead corrupts the BDOS,
+# hanging WordStar at launch (see bead cpemu-8ad). This standard build talks only
+# to the BIOS console, so it is portable. It ships UNINSTALLED; install it once
+# for a terminal with WINSTALL: run WINSTALL, answer WS / WS, then Console (A) ->
+# Monitor selection (A) -> "ANSI Standard (DEC VT-100)" (C) -> X -> X -> Y. ANSI
+# passes straight through cpemu's translator to any modern terminal. We take only
+# the program + installer files (the speller, dictionary, and docs are large and
+# optional, and the EXTRAS filter drops the sample .doc files).
+wsurl="https://archive.org/download/wordstar-release-4-for-cpm/WordStar%20Release%204%20for%20CPM%20%28Loose%20Files%29.zip"
+wszip="$ZIPS/wordstar4.zip"
+printf '==> %-28s ' "wordstar4 (archive.org)"
+if [ -s "$wszip" ] || curl -fsSL --connect-timeout 15 --max-time 180 -o "$wszip" "$wsurl" 2>/dev/null; then
+  # shellcheck disable=SC2086
+  unzip -o -j -C -d "$DEST" "$wszip" "*/01_Program/*" "*/02_Install/*" -x $EXTRAS >/dev/null 2>&1
+  echo "ok"
+else
+  echo "SKIPPED (download failed/timed out)"
+fi
 fetch "$base/business/Suprcalc.zip" # SuperCalc spreadsheet
 fetch "$base/business/MULTPLAN.ZIP" # Microsoft Multiplan
 fetch "$base/dbase/dbaseii.zip"     # dBASE II database

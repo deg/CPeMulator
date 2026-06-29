@@ -427,6 +427,65 @@ impl Disk {
         Ok(())
     }
 
+    /// Read a file's bytes back out of the image — the inverse of [`add_file`].
+    /// Returns `None` if the file is not in the directory. This recovers a
+    /// program a guest modified in place: e.g. WordStar's installer patches
+    /// `WS.COM` with the chosen terminal, and we extract the result.
+    pub fn read_file(&self, filename: &str) -> Option<Vec<u8>> {
+        let (name, ext) = parse_filename(filename).ok()?;
+        let fmt = self.format;
+        let bpe = fmt.blocks_per_entry();
+        // Gather every directory extent for this name (a file > 16 KB spans
+        // several), then read them back in extent order.
+        let mut extents: Vec<(usize, usize, Vec<usize>)> = Vec::new();
+        for idx in 0..fmt.dir_entries {
+            let e = self.dir_entry(idx);
+            if e[0] == 0xE5 || e[1..9] != name || e[9..12] != ext {
+                continue; // empty/deleted, or a different file
+            }
+            let mut blocks = Vec::new();
+            for j in 0..bpe {
+                let blk = if fmt.wide_alloc {
+                    usize::from(e[16 + 2 * j]) | (usize::from(e[16 + 2 * j + 1]) << 8)
+                } else {
+                    usize::from(e[16 + j])
+                };
+                if blk != 0 {
+                    blocks.push(blk);
+                }
+            }
+            extents.push((usize::from(e[12]), usize::from(e[15]), blocks));
+        }
+        if extents.is_empty() {
+            return None;
+        }
+        extents.sort_by_key(|(ex, _, _)| *ex);
+        let mut out = Vec::new();
+        let mut records = 0;
+        for (ex, rc, blocks) in &extents {
+            for &blk in blocks {
+                out.extend_from_slice(&self.read_block(blk));
+            }
+            // The record count lives in each extent; the last one gives the
+            // total. CP/M tracks length only to the nearest 128-byte record,
+            // which is exact for binaries that are a whole number of records.
+            records = ex * RECORDS_PER_EXTENT + rc;
+        }
+        out.truncate(records * SECTOR_SIZE);
+        Some(out)
+    }
+
+    /// Read one allocation block's raw bytes from the data area.
+    fn read_block(&self, block: usize) -> Vec<u8> {
+        let spb = self.format.sectors_per_block();
+        let mut out = Vec::with_capacity(self.format.block_size);
+        for i in 0..spb {
+            let (t, s) = self.data_location(block * spb + i);
+            out.extend_from_slice(self.read_sector(t, s));
+        }
+        out
+    }
+
     /// List the file names on the disk (first extent of each), e.g.
     /// `["HELLO.COM"]`.
     pub fn list_files(&self) -> Vec<String> {
@@ -620,6 +679,25 @@ mod tests {
         let recovered = reconstruct(&d, b"BIG     ", b"DAT");
         assert!(recovered.len() >= data.len());
         assert_eq!(&recovered[..data.len()], &data[..]);
+    }
+
+    #[test]
+    fn read_file_recovers_added_files() {
+        // `read_file` is the public inverse of `add_file`: it must return the
+        // bytes written, across block and extent boundaries, be case-insensitive
+        // on the name, and give None for a missing file. This is what lets us
+        // extract a guest-modified WS.COM after WordStar's installer patches it.
+        let mut d = Disk::blank_with(DiskFormat::hard_8mb());
+        let small = b"hello\r\n\x1a".to_vec();
+        let big: Vec<u8> = (0..40_000u32).map(|i| (i % 251) as u8).collect();
+        d.add_file("SMALL.TXT", &small).unwrap();
+        d.add_file("BIG.DAT", &big).unwrap();
+        let r = d.read_file("SMALL.TXT").unwrap();
+        assert_eq!(&r[..small.len()], &small[..]);
+        let r = d.read_file("big.dat").unwrap(); // case-insensitive
+        assert!(r.len() >= big.len());
+        assert_eq!(&r[..big.len()], &big[..]);
+        assert!(d.read_file("NOPE.COM").is_none());
     }
 
     #[test]

@@ -117,8 +117,10 @@ SC
    SuperCalc spreadsheet.  Not pre-configured for a terminal in
    this build, so it may not display correctly yet.
 WS
-   WordStar word processor.  Full-screen; run WINSTALL once to
-   set it up for a terminal.  Commands are Ctrl-key combos;
+   WordStar 4 word processor (generic edition, pre-installed for the
+   ANSI/VT-100 terminal, which cpemu passes straight through).  Full-
+   screen.  To re-install for a different terminal, run WINSTALL and
+   pick one from its Console menu.  Commands are Ctrl-key combos;
    ^KX saves and exits, ^KQ quits without saving.
 
 ---------------- TEXT TOOLS ------------------------------------
