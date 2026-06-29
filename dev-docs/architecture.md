@@ -171,6 +171,12 @@ plus the ADM-3A's `^Z`/`^^` — onto your host terminal's ANSI. The TVI-950 is w
 the bundled full-screen software actually drives (some of it under the label
 "Microbee VDU", a TeleVideo-compatible screen). `--raw` disables translation.
 
+When a display bug only reproduces interactively (e.g. a game that seeds its RNG
+from how long you wait before the first keypress, so it never reaches gameplay in
+a batch run), set `CPEMU_TRACE_OUT=<path>` to tee every *raw* guest output byte
+(before translation) to a file. Decoding that trace is how the TVI-950 code set
+was pinned down — it shows exactly what the program emits, not what we assume.
+
 ## How a running system fits together (the eventual picture)
 
 Once the pieces below the application exist, a session looks like this:

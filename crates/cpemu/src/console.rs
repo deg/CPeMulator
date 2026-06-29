@@ -59,6 +59,11 @@ pub struct TerminalConsole {
     /// Map the host Delete key (`0x7F`) to Backspace (`^H`, `0x08`) so it erases
     /// cleanly instead of triggering CP/M's RUBOUT (which re-echoes the char).
     map_delete: bool,
+    /// Optional diagnostic tap: if `CPEMU_TRACE_OUT` names a writable path, every
+    /// *raw* guest output byte (before terminal translation) is appended to it.
+    /// This is how we capture exactly what a program emits when a display bug is
+    /// only reproducible interactively (e.g. a game that needs real-time input).
+    trace: Option<std::fs::File>,
     _raw: RawGuard,
 }
 
@@ -102,6 +107,7 @@ impl TerminalConsole {
             brk,
             upper,
             map_delete,
+            trace: std::env::var_os("CPEMU_TRACE_OUT").and_then(|p| std::fs::File::create(p).ok()),
             _raw: raw,
         })
     }
@@ -137,6 +143,9 @@ impl Console for TerminalConsole {
     }
 
     fn write(&mut self, byte: u8) {
+        if let Some(f) = &mut self.trace {
+            let _ = f.write_all(&[byte]);
+        }
         let mut buf = Vec::new();
         self.term.feed(byte, &mut buf);
         if !buf.is_empty() {
