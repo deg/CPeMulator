@@ -10,27 +10,78 @@ virtual machine, then boots the **genuine** Digital Research CP/M 2.2 command
 processor (CCP) and kernel (BDOS) — the same binaries that ran on real hardware —
 rather than re-implementing the operating system in Rust.
 
-> **Status: early development, but it boots — and you can type at it.** The Z80
-> CPU core is complete and `zexdoc`-validated, and **the genuine CP/M 2.2 boots to
-> an interactive `A>` prompt**: run `cargo run` and you get a live CP/M session in
-> your terminal (try `DIR`; quit with Ctrl-\\). A real disk image is served
-> through the HLE BIOS. Still missing: tools to put your own files/programs on the
-> disk, and a debugger. See [Project status](#project-status) for exactly what
-> works. If you are a developer, start with [`dev-docs/`](dev-docs/README.md).
+> **Status: it works.** The Z80 CPU core is complete and `zexdoc`-validated, and
+> the **genuine, unmodified CP/M 2.2 boots to an interactive `A>` prompt** with a
+> real disk image served through the HLE BIOS. You can run the classic software
+> (Zork, Turbo Pascal, WordStar, MBASIC, dBASE …), mount persistent multi-drive
+> disks and write files back to them, and break into a built-in debug monitor at
+> any time. The fastest way in is `make play` (see [Quick start](#quick-start)).
+> See [Project status](#project-status) for the full capability list and the few
+> known limits. To work *on* CPeMulator, start with
+> [`dev-docs/`](dev-docs/README.md).
 
 ---
 
 ## Table of contents
 
+- [How this was built](#how-this-was-built)
+- [Quick start](#quick-start)
 - [What is CP/M, and why emulate it?](#what-is-cpm-and-why-emulate-it)
 - [Design in one paragraph](#design-in-one-paragraph)
 - [Project status](#project-status)
 - [Running classic CP/M software](#running-classic-cpm-software)
-- [Building and testing](#building-and-testing)
+- [Writing your own CP/M programs](#writing-your-own-cpm-programs)
 - [Repository layout](#repository-layout)
-- [Roadmap](#roadmap)
 - [For developers](#for-developers)
 - [Licensing and third-party code](#licensing-and-third-party-code)
+
+---
+
+## How this was built
+
+CPeMulator was written in a day, with [Claude](https://claude.com/claude-code),
+as an experiment in "vibe coding" a non-trivial systems project: how far can a
+human-plus-AI pair get on a real emulator in a single sitting? The bet was that a
+*well-documented legacy system* is close to the ideal target for this. CP/M and
+the Z80 are exhaustively specified — there are published instruction tables,
+cycle counts, BDOS call conventions, decades-old manuals, and industry-standard
+CPU test programs (`zexdoc`/`zexall`) that say objectively whether the core is
+correct. That documentation is what makes the approach here — emulate the
+hardware and boot the *genuine* CP/M binaries (see
+[Design in one paragraph](#design-in-one-paragraph)) — tractable to build quickly
+and verifiable as it goes, rather than a pile of plausible-looking guesses. The
+result is a working machine that boots real CP/M and runs real vintage software;
+the developer docs in [`dev-docs/`](dev-docs/README.md) record the design and the
+reasoning behind it.
+
+## Quick start
+
+From a bare checkout to running classic CP/M software in four steps:
+
+```bash
+# 1. Install a recent stable Rust toolchain (edition 2024; developed against
+#    Rust 1.95). The easiest way is rustup: https://rustup.rs
+#    Verify with:  cargo --version
+
+# 2. Clone the repository
+git clone https://github.com/deg/CPeMulator.git
+cd CPeMulator
+
+# 3. One-time data prep (needs network): downloads a library of classic CP/M
+#    software and installs WordStar. Pulls from retroarchive.org, the Internet
+#    Archive, and bdsoft.com; cached and tolerant of the occasionally-flaky
+#    archive, so it's safe to re-run.
+make setup
+
+# 4. Boot CP/M with the whole library on drive A:
+make play
+```
+
+You'll land at CP/M's `A>` prompt. Try `TYPE PROGRAMS.TXT` for a guided tour,
+`DIR` to list the disk, or `ZORK1` to start playing. Break into the debug monitor
+at any time with **Ctrl-\\** (`q` there quits). The rest of this README covers
+[what's on the disk and how to run it](#running-classic-cpm-software); just want
+a bare CP/M session with nothing loaded? Run `make run`.
 
 ---
 
@@ -72,36 +123,38 @@ plumbed cleanly into the host. For the reasoning behind these choices, see
 
 ## Project status
 
-CPeMulator is built in dependency order: a correct CPU first, then the machine, then
-the OS layer. Here is the honest state of each piece.
+CPeMulator runs genuine CP/M 2.2 and the vintage software written for it. The core
+pieces are built and tested:
 
-| Component                         | Status         |
-|-----------------------------------|----------------|
-| Z80 CPU — 8080 base instructions  | [x] done, tested |
-| Z80 CPU — Z80 extensions (CB/ED/DD/FD) | [x] done, tested |
-| Z80 CPU — interrupts (IM 0/1/2)   | [x] done, tested |
-| Z80 CPU — disassembler            | [x] done, tested |
-| Z80 CPU — validated vs. exercisers (zexdoc) | [x] **passes** (zexall: 1 group short) |
-| Virtual machine & memory          | [x] done, tested |
-| HLE BIOS & boot                   | [x] boots to `A>` |
-| Disk subsystem                    | [x] 8"/8 MB read/write, `.dsk` mount/save, multiple drives (A..P) |
-| Console & terminal                | [x] interactive raw-TTY + TeleVideo TVI-950 emulation |
-| Debugger / monitor                | [x] interactive: breakpoints, step/trace, disassembly, register/memory inspect+edit (Ctrl-\\) |
-| Boot CP/M to the `A>` prompt      | [x] interactive (`cargo run`) |
+- **Z80 CPU** — the full instruction set (8080 base plus the Z80 CB/ED/DD/FD
+  prefixes), interrupts (IM 0/1/2), and a disassembler. Validated against the
+  standard `zexdoc` exerciser, which it **passes**.
+- **The machine** — RAM, the I/O bus, and the HLE-BIOS trap mechanism that boots
+  the genuine Digital Research CCP and BDOS straight off a disk image.
+- **Disk** — read/write `.dsk` images (8" floppy or 8 MB hard disk), multiple
+  drives (A..P), with in-CP/M changes saved back atomically on exit.
+- **Console** — your terminal as the CP/M console, with TeleVideo TVI-950 → ANSI
+  translation so full-screen programs display correctly.
+- **Debug monitor** — an interactive DDT-style debugger over the live Z80
+  (breakpoints, single-step/trace, disassembly, register/memory inspect+edit),
+  reachable at any time with **Ctrl-\\**.
 
-**`cargo run` boots an interactive CP/M session** in your terminal. The boot
-integration tests in `crates/cpemu/src/bios.rs` also drive the real CCP/BDOS
-headless (booting and running `DIR`). You can load your own files (positional
-args), mount persistent `.dsk` images on several drives (`--disk`), and break
-into a built-in debug monitor at any time with **Ctrl-\\**. At startup a quick
-fixed-mix benchmark prints the host's raw Z80 throughput (e.g. *"~1170 MHz, ~292x
-a 4 MHz Z80"*) — a reproducible figure, unlike the workload-dependent `--fast`
-number.
+**Known limitations.** `zexall` — the stricter exerciser that also checks the
+undocumented flag bits — is one instruction group short: it needs the Z80's
+internal WZ/MEMPTR register, which no real CP/M software depends on. Only one
+machine profile exists today (`virtual`); the `--machine` flag is the seam for
+future ones.
+
+At startup a quick fixed-mix benchmark prints the host's raw Z80 throughput
+(e.g. *"~1170 MHz, ~292× a 4 MHz Z80"*) — a reproducible figure, unlike the
+workload-dependent `--fast` number. For the design reasoning and the live
+roadmap, see [`dev-docs/`](dev-docs/README.md).
 
 ## Running classic CP/M software
 
-The fun part. From a bare checkout, two `make` targets take you from nothing to a
-fully-loaded CP/M machine:
+The fun part. [Quick start](#quick-start) gets you to a fully-loaded machine with
+`make setup` then `make play`; this section is what's behind those two targets and
+everything you can do once you're there.
 
 ```bash
 make setup    # once: download a library of classic CP/M software + install WordStar
@@ -154,6 +207,22 @@ A: before boot:
 cargo run -- software/ZORK1.COM software/ZORK1.DAT          # just Zork I
 cargo run -- --mhz=2 software/LADDER.COM software/LADDER.DAT  # slow it down
 ```
+
+### Finding more software
+
+The fetch script grabs a curated starter set, but there is far more out there.
+To run anything else, drop its `.COM` (and any data files) into `software/` and
+re-run `make play`, or pass it on the command line. Large, well-organized
+archives to dig through:
+
+- [The *Humongous* CP/M Software Archives](http://www.classiccmp.org/cpmarchives/)
+  — the Walnut Creek CP/M CD-ROM plus a huge collection of commercial software.
+- [The Unofficial CP/M Web Site](http://www.cpm.z80.de/) — Digital Research's own
+  languages, tools, source, and documentation, free and legal to download.
+- [retroarchive.org/cpm](http://www.retroarchive.org/cpm/) — the commercial CP/M
+  archive this project already fetches from, browsable by category.
+- [The Internet Archive](https://archive.org/details/Humongous_CPM_Archive_Collection)
+  — mirrored CP/M collections.
 
 ### Options
 
@@ -215,29 +284,36 @@ The console translates **TeleVideo TVI-950** terminal codes to ANSI (plus the
 ADM-3A's `^Z`/`^^` it shares lineage with), so full-screen programs (Ladder, the
 Turbo Pascal editor, PACMAN95) display correctly, while plain text and modern
 `ESC[` sequences pass straight through. The TVI-950 was one of the most common
-CP/M-era terminals, and the software that ships here targets it — some labels it
-"Microbee VDU", a TeleVideo-compatible screen. Software configured for ANSI/VT100
-needs no translation at all. `--raw` disables translation entirely.
+CP/M-era terminals, and the software that ships here targets it — some of it
+under the name "Microbee VDU", a TeleVideo-compatible screen. Software configured
+for ANSI/VT100 needs no translation at all. `--raw` disables translation entirely.
 
-## Building and testing
+## Writing your own CP/M programs
 
-CPeMulator is a standard Rust workspace. You need a recent stable Rust toolchain
-(edition 2024; developed against Rust 1.95).
+CPeMulator is a real CP/M machine, so you can develop *for* CP/M two ways.
 
-```bash
-# Build everything
-cargo build --workspace
+**Inside the emulator**, the classic toolchains the fetch script installs run
+as-is: the CP/M assembler (`ASM`) and `DDT` debugger, the BDS C compiler, Turbo
+Pascal, and Microsoft BASIC. Write source with `ED` (or edit it on the host and
+copy the file in), assemble or compile, and run — the whole early-1980s workflow,
+end to end. Mount a persistent disk with `--disk=work.dsk` so your sources and
+binaries survive across sessions.
 
-# Run the test suite (this is the best way to see progress today)
-cargo test --workspace
+**On the host**, modern cross-compilers target Z80/CP/M and emit `.COM` files you
+can drop into `software/` and run:
 
-# Run the developer gate — formatting, lints, and tests — exactly as CI does
-make check
-```
+- [z88dk](https://z88dk.org/) — a C compiler, assembler, and linker for Z80
+  machines that builds CP/M binaries directly (it wraps
+  [SDCC](https://sdcc.sourceforge.net/) for code generation).
+- [Macro Assembler AS](http://john.ccac.rwth-aachen.de:8000/as/) (`asl`) — the
+  multi-target assembler this repo already uses to rebuild the vendored CP/M
+  source; it assembles 8080/Z80 to a raw binary.
 
-To boot CP/M interactively, `cargo run` (quit with **Ctrl-\\**). See
-[Running classic CP/M software](#running-classic-cpm-software) for the full
-experience, and `cargo run -- --help` for every option.
+For the system-call interface, the canonical references — the *CP/M 2.2
+Programmer's Guide* and the BDOS function list — are on
+[the Unofficial CP/M Web Site](http://www.cpm.z80.de/), and the vendored CCP/BDOS
+source under [`third-party/cpm22/`](third-party/cpm22/) is itself a worked
+example of real CP/M code.
 
 ## Repository layout
 
@@ -254,34 +330,25 @@ CPeMulator/
 └── dev-docs/             Developer documentation (start at dev-docs/README.md)
 ```
 
-The CPU lives in its own crate on purpose: it is the load-bearing component, it
-is validated in isolation against industry-standard test programs, and keeping it
-dependency-light means it never accidentally couples to the rest of the emulator.
-See [`dev-docs/architecture.md`](dev-docs/architecture.md) for why the workspace
-is split this way.
-
-## Roadmap
-
-Work is tracked as a set of epics (see [`dev-docs/roadmap.md`](dev-docs/roadmap.md)
-for the live breakdown and rationale):
-
-1. **CPU core** — a correct Z80, proven against the standard exercisers. *(in progress)*
-2. **Virtual machine & memory** — RAM, the I/O bus, and the BIOS-trap mechanism.
-3. **HLE BIOS & boot** — load and run the genuine CCP+BDOS off a disk image.
-4. **Disk subsystem** — read/write real `.dsk` images.
-5. **Console & terminal** — your terminal as the CP/M console.
-6. **Debugger / monitor** — the interactive frontend.
-7. **Integration** — boot to `A>` and run real vintage software.
+The CPU lives in its own crate on purpose, for reasons explained in the
+developer docs.
 
 ## For developers
 
-If you want to understand or contribute to CPeMulator, read the developer docs:
+This README is for *using* CPeMulator. Everything about *building on* it — the
+system design and the reasoning behind it, the workspace split, how the CPU core
+works inside, the day-to-day workflow, and the roadmap — lives in
+[`dev-docs/`](dev-docs/README.md):
 
 - [`dev-docs/README.md`](dev-docs/README.md) — index and orientation
 - [`dev-docs/architecture.md`](dev-docs/architecture.md) — the system design and the decisions behind it
 - [`dev-docs/cpu-core.md`](dev-docs/cpu-core.md) — how the CPU core works internally
-- [`dev-docs/development.md`](dev-docs/development.md) — workflow, tooling, and conventions
-- [`dev-docs/roadmap.md`](dev-docs/roadmap.md) — the plan and current status
+- [`dev-docs/development.md`](dev-docs/development.md) — workflow, toolchain, `make` targets, testing, and conventions
+- [`dev-docs/roadmap.md`](dev-docs/roadmap.md) — the plan, the epics, and current status
+
+The short version for hacking: it's a standard Rust workspace —
+`cargo build --workspace`, `cargo test --workspace`, and `make check` for the
+full format-lint-test gate that CI enforces.
 
 ## Licensing and third-party code
 
