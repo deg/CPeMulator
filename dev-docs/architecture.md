@@ -18,17 +18,17 @@ To understand the design you have to understand how a real CP/M machine is
 layered, because CPeMulator mirrors that layering. From the top down:
 
 ```
-┌─────────────────────────────────────────────┐
+┌──────────────────────────────────────────────┐
 │ Application (MBASIC, WordStar, your program) │  ← the software we want to run
-├─────────────────────────────────────────────┤
+├──────────────────────────────────────────────┤
 │ CCP   — the command shell (the A> prompt)    │  ┐
-├─────────────────────────────────────────────┤  │ genuine Digital Research
+├──────────────────────────────────────────────┤  │ genuine Digital Research
 │ BDOS  — kernel: files, console, system calls │  ┘ binaries, unmodified
-├─────────────────────────────────────────────┤
+├──────────────────────────────────────────────┤
 │ BIOS  — machine-specific console & disk I/O  │  ← CPeMulator provides this
-├─────────────────────────────────────────────┤
+├──────────────────────────────────────────────┤
 │ Hardware — CPU, RAM, console, disk           │  ← CPeMulator emulates this
-└─────────────────────────────────────────────┘
+└──────────────────────────────────────────────┘
 ```
 
 The crucial fact: **CCP and BDOS are identical across all CP/M machines, but the

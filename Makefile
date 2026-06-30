@@ -6,7 +6,7 @@ all: check
 
 # ---------------------------------------------------------------------------
 # Running cpemu. Override these on the command line, e.g.
-#   make play MHZ=2              full suite, CPU slowed to 2 MHz (action games)
+#   make play MHZ=2             full suite, CPU slowed to 2 MHz (action games)
 #   make play FAST=1            full suite, unthrottled (host speed)
 #   make run  ARGS=--arrows     bare CP/M, arrow keys -> WordStar diamond
 #   make run  PROFILE=debug     unoptimized build (faster to compile, slower run)
