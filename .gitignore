@@ -1,4 +1,3 @@
-
 # macOS
 .DS_Store
 
@@ -14,6 +13,7 @@ third-party/cpm22/*.lst
 .dolt/
 *.db
 .beads-credential-key
+.beads.gate.lock
 .beads/proxieddb/
 
 # Fetched CP/M software (run scripts/fetch-software.sh)
