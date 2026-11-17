@@ -35,7 +35,7 @@ pub struct Emulator {
 
 #[wasm_bindgen]
 impl Emulator {
-    /// Cold-boot CP/M with a fresh 8" floppy as drive A:, holding the bundled
+    /// Cold-boot CP/M with a fresh 8 MB disk as drive A:, holding the bundled
     /// DRI utilities (PIP, STAT, ED, ASM, ...). Nothing runs until the first
     /// [`run`](Emulator::run).
     #[wasm_bindgen(constructor)]

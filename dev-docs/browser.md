@@ -89,7 +89,7 @@ dependency, and its tests boot CP/M, type `DIR`, upload a program and run it.
 
 | Method | Does |
 |--------|------|
-| `new Emulator()` | Cold-boot with a fresh 8" floppy holding the bundled utilities. |
+| `new Emulator()` | Cold-boot with a fresh 8 MB disk holding the bundled utilities. |
 | `Emulator.fromImage(bytes)` | Cold-boot from a saved drive-A: image or a `.dsk` file. |
 | `run(cycles)` | Run; returns `"running"`, `"idle"`, `"halted"`, `"stopped"` or `"illegal XX"`. |
 | `typeBytes(bytes)` / `takeOutput()` | Keys in; ANSI screen output out. |
@@ -143,8 +143,12 @@ have no Ctrl key, every control code. **Esc** and **^C** are buttons too.
 Drive A: is saved in the browser's IndexedDB under the key `A`, whenever
 `diskChanges()` differs from its value at the last save: at most once a second
 while a program runs, and immediately when CP/M goes idle or the tab is hidden.
-Each save writes the whole image (241 KB for a floppy), a cost small enough not to
-optimise. On the next visit the page boots from it. Nothing leaves the browser.
+Each save writes the whole image, a cost small enough not to optimise: for the
+8 MB disk a fresh page starts with (the desktop version's default too), an
+IndexedDB save measured about 5 ms in Chromium, and 0.2 ms for a 241 KB floppy.
+Saving only the changed parts of the image would be the next step if that ever
+mattered. A disk saved as a floppy by an earlier version still boots, since the
+format is detected from the image's size. On the next visit the page boots from it. Nothing leaves the browser.
 
 **Browsers treat that storage as disposable.** Safari deletes a site's data after
 about seven days of use without a visit. Any browser may clear it when the disk
@@ -209,5 +213,3 @@ source.
 - **The debug monitor** (Ctrl-\\ in the CLI). Its prompt reads a line with a blocking
   read. A browser debugger is bead `cpemu-q61`, in Phase 2 (epic `cpemu-81c`).
 - **More drives.** The page mounts only A:. `Session` already takes extra drives.
-- **The 8 MB hard-disk format for a fresh disk.** A fresh disk is a 241 KB floppy;
-  an uploaded 8 MB `.dsk` works.

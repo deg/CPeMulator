@@ -9,7 +9,7 @@
 //! WordStar) the visitor uploads themselves.
 
 use cpemu::cpm22::{BDOS, CCP};
-use cpemu::disk::{Disk, terminate_text_file};
+use cpemu::disk::{Disk, DiskFormat, terminate_text_file};
 
 macro_rules! utility {
     ($name:literal) => {
@@ -34,12 +34,15 @@ pub const FILES: &[(&str, &[u8])] = &[
     utility!("XSUB.COM"),
 ];
 
-/// A fresh 8" system disk holding the bundled files.
+/// A fresh system disk holding the bundled files: the 8 MB hard-disk format,
+/// the desktop version's default too, so uploads have room. (The browser saves
+/// the whole image when it changes; an 8 MB save measured about 5 ms in
+/// Chromium, at most once a second.)
 pub fn default_disk() -> Disk {
-    let mut disk = Disk::make_system_disk(CCP, BDOS);
+    let mut disk = Disk::make_system_disk_with(DiskFormat::hard_8mb(), CCP, BDOS);
     for (name, bytes) in FILES {
         disk.add_file(name, &terminate_text_file(name, bytes.to_vec()))
-            .expect("the bundle fits on a floppy");
+            .expect("the bundle fits on the disk");
     }
     disk
 }
