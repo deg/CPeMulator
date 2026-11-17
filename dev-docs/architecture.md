@@ -177,6 +177,18 @@ a batch run), set `CPEMU_TRACE_OUT=<path>` to tee every *raw* guest output byte
 (before translation) to a file. Decoding that trace is how the TVI-950 code set
 was pinned down — it shows exactly what the program emits, not what we assume.
 
+## Decision 7: One emulator, two front ends (terminal and browser)
+
+The emulator library (`crates/cpemu`) serves two front ends: the CLI, which owns a
+host terminal, and a web page, which runs the same code compiled to WebAssembly.
+What lets one library serve both is that **nothing in the emulation blocks**. The
+BIOS `CONIN` re-traps instead of waiting for a key, so the machine can be run in
+slices of CPU cycles ([`session.rs`](../crates/cpemu/src/session.rs)) and handed
+back to a browser between animation frames. Code that only a native host can run
+(raw terminal mode, the sleeping throttle) is compiled only for native targets, and
+`make check` confirms the library still builds for wasm32. See
+[browser.md](browser.md).
+
 ## How a running system fits together (the eventual picture)
 
 Once the pieces below the application exist, a session looks like this:

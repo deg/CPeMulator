@@ -15,7 +15,8 @@ rather than re-implementing the operating system in Rust.
 > real disk image served through the HLE BIOS. You can run the classic software
 > (Zork, Turbo Pascal, WordStar, MBASIC, dBASE …), mount persistent multi-drive
 > disks and write files back to them, and break into a built-in debug monitor at
-> any time. The fastest way in is `make play` (see [Quick start](#quick-start)).
+> any time. The fastest way in is `make play` (see [Quick start](#quick-start)),
+> or, with nothing to install, **[CP/M in your browser](https://cpemulator.degel.com/)**.
 > See [Project status](#project-status) for the full capability list and the few
 > known limits. To work *on* CPeMulator, start with
 > [`dev-docs/`](dev-docs/README.md).
@@ -25,6 +26,7 @@ rather than re-implementing the operating system in Rust.
 ## Table of contents
 
 - [How this was built](#how-this-was-built)
+- [Try it in your browser](#try-it-in-your-browser)
 - [Quick start](#quick-start)
 - [What is CP/M, and why emulate it?](#what-is-cpm-and-why-emulate-it)
 - [Design in one paragraph](#design-in-one-paragraph)
@@ -53,6 +55,31 @@ and verifiable as it goes, rather than a pile of plausible-looking guesses. The
 result is a working machine that boots real CP/M and runs real vintage software;
 the developer docs in [`dev-docs/`](dev-docs/README.md) record the design and the
 reasoning behind it.
+
+## Try it in your browser
+
+**<https://cpemulator.degel.com/>** runs the same emulator compiled to
+WebAssembly, with nothing to install. It boots genuine CP/M 2.2 with Digital
+Research's own utilities on drive A: (PIP, STAT, ED, ASM, LOAD, DDT, DUMP,
+SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
+`ASM DUMP`, `LOAD DUMP`, `DUMP DUMP.COM`.
+
+- **Your own programs:** click **Upload…** (or drag files onto the screen) to put
+  `.COM` and data files on A:. Vintage software isn't hosted on the site, but
+  anything you have can be uploaded (unzip archives first); see
+  [Finding more software](#finding-more-software) for where to get it.
+- **Keep your work with Download disk.** It saves drive A: as a `.dsk` image,
+  which the page accepts back by **Upload** and the native version mounts with
+  `--disk=`. The disk is also kept in your browser between visits (nothing is
+  sent anywhere), but browsers may clear their storage on their own, so the
+  download is your real copy. The status line says when you have changes not
+  yet downloaded.
+- **Control keys the browser keeps for itself** (Ctrl-W, Ctrl-T, Ctrl-N on Windows
+  and Linux, which WordStar and Turbo Pascal need): click **Ctrl**, then the key.
+- **Speed** sets the emulated clock: 4 MHz by default, or **Max**.
+
+The debug monitor is only in the native version for now. How the browser build
+works is in [`dev-docs/browser.md`](dev-docs/browser.md).
 
 ## Quick start
 
@@ -138,6 +165,10 @@ pieces are built and tested:
 - **Debug monitor** — an interactive DDT-style debugger over the live Z80
   (breakpoints, single-step/trace, disassembly, register/memory inspect+edit),
   reachable at any time with **Ctrl-\\**.
+- **In a web browser** — the same emulator compiled to WebAssembly, with an
+  xterm.js terminal, a control panel, uploads, and the disk saved in the browser
+  (see [Try it in your browser](#try-it-in-your-browser)). Built and tested; the
+  public site goes live with its first deploy to GitHub Pages.
 
 **Known limitations.** `zexall` — the stricter exerciser that also checks the
 undocumented flag bits — is one instruction group short: it needs the Z80's
@@ -324,9 +355,12 @@ CPeMulator/
 ├── Makefile              Developer tasks (make check, fmt, lint, test)
 ├── crates/
 │   ├── cpu/              cpemu-cpu: the Z80/8080 CPU core (a standalone library)
-│   └── cpemu/            cpemu: the system layer and CLI binary
+│   ├── cpemu/            cpemu: the system layer and CLI binary
+│   └── web/              cpemu-web: the WebAssembly wrapper for the browser build
+├── web/                  The browser page (web/www), its build script and smoke test
 ├── third-party/
-│   └── cpm22/            Vendored genuine CP/M 2.2 CCP+BDOS source + license
+│   └── cpm22/            Vendored genuine CP/M 2.2 CCP+BDOS source + license,
+│                         and DRI's CP/M 2.2 utilities (utilities/)
 └── dev-docs/             Developer documentation (start at dev-docs/README.md)
 ```
 
@@ -344,6 +378,7 @@ works inside, the day-to-day workflow, and the roadmap — lives in
 - [`dev-docs/architecture.md`](dev-docs/architecture.md) — the system design and the decisions behind it
 - [`dev-docs/cpu-core.md`](dev-docs/cpu-core.md) — how the CPU core works internally
 - [`dev-docs/development.md`](dev-docs/development.md) — workflow, toolchain, `make` targets, testing, and conventions
+- [`dev-docs/browser.md`](dev-docs/browser.md) — the browser (WebAssembly) build: how it works, building, deploying
 - [`dev-docs/roadmap.md`](dev-docs/roadmap.md) — the plan, the epics, and current status
 
 The short version for hacking: it's a standard Rust workspace —
@@ -358,4 +393,8 @@ genuine Digital Research CP/M 2.2 CCP and BDOS source under
 [`third-party/cpm22/`](third-party/cpm22/); CP/M and its derivatives are
 redistributable under a grant from DRDOS Inc. (successor to Digital Research). See
 [`third-party/cpm22/NOTICE.md`](third-party/cpm22/NOTICE.md) for provenance and
-the full license text.
+the full license text. DRI's CP/M 2.2 utility programs, which the browser build
+puts on a fresh disk, are vendored under the same grant in
+[`third-party/cpm22/utilities/`](third-party/cpm22/utilities/NOTICE.md). The
+browser page also vendors [xterm.js](https://xtermjs.org/) (MIT) in
+`web/www/vendor/xterm/`.
