@@ -12,10 +12,14 @@ project follows.
 - The **`wasm32-unknown-unknown`** target (`rustup target add
   wasm32-unknown-unknown`), because `make check` also confirms the emulator
   library still compiles for the browser.
+- For building and testing the **browser version** itself: the **`wasm-bindgen`
+  command-line tool** at exactly the version `crates/web/Cargo.toml` pins
+  (`web/build.sh` says how to install it), and **Node** for its smoke test. See
+  [browser.md](browser.md).
 
-No other system dependencies are required to build and test the current code. (A
-Z80 assembler — Macro Assembler AS — will be needed later, when the boot epic
-assembles the vendored CP/M source; it is not needed yet.)
+Nothing else is required. A Z80 assembler (Macro Assembler AS) is needed only to
+regenerate the committed CCP/BDOS binaries with `make cpm-binaries`; normal builds
+use the committed copies.
 
 ## The developer gate: `make check`
 
@@ -53,6 +57,10 @@ targets are conveniences:
 | `make test` | Just the tests. |
 | `make build` | `cargo build --workspace`. |
 | `make wasm-check` | Just the browser-build compile check. |
+| `make web` | Build the browser version into `web/www/pkg/`. |
+| `make web-serve` | Build, then serve the page at http://localhost:8000/. |
+| `make web-smoke` | Build, then test the built module in Node (what the deploy runs). |
+| `make run` / `make play` | Run the desktop version: bare, or with the full software library (`make setup` first). |
 | `make check` | The full gate (fmt-check + lint + test + wasm-check). The default target. |
 
 ### Lints are errors
@@ -69,6 +77,11 @@ Every push and pull request runs the `.github/workflows/ci.yml` workflow, which
 installs a stable toolchain and the wasm32 target and runs the same
 fmt/clippy/test/wasm-check gate as `make check`, with cargo caching. CI runs on
 GitHub Actions.
+
+A second workflow, `.github/workflows/pages.yml`, builds the browser version, runs
+its smoke test, and deploys it to GitHub Pages at <https://cpemulator.degel.com/>
+on every push to `main` that touches the code, the page, or the vendored binaries.
+So **a push to `main` is a deploy.** See [browser.md](browser.md#deployment).
 
 ## Issue tracking: beads (`bd`)
 
@@ -106,10 +119,12 @@ A few conventions specific to this project:
 - Write commit *bodies* that explain what changed and why — the same clarity-over-
   brevity standard as the docs. A reader six months from now should understand the
   change from the message alone.
-- The default branch is `main`, hosted privately at `github.com/deg/CPeMulator`.
+- The default branch is `main`, at `github.com/deg/CPeMulator`, which is
+  **public**.
 
 The beads issue database also syncs to the git remote (via Dolt) so issue state
-travels with the repository.
+travels with the repository. Since the repository is public, so are the beads and
+their memories: keep them, like the docs and commit messages, to engineering.
 
 ## Documentation is part of the work
 

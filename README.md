@@ -10,13 +10,19 @@ virtual machine, then boots the **genuine** Digital Research CP/M 2.2 command
 processor (CCP) and kernel (BDOS) — the same binaries that ran on real hardware —
 rather than re-implementing the operating system in Rust.
 
+There are **two ways to run it**: in a web browser at
+<https://cpemulator.degel.com/>, with nothing to install, or as a desktop program in
+a terminal on your own computer. Both run the same emulator code and the same
+genuine CP/M; see [Two ways to run it](#two-ways-to-run-it) for how they differ.
+
 > **Status: it works.** The Z80 CPU core is complete and `zexdoc`-validated, and
 > the **genuine, unmodified CP/M 2.2 boots to an interactive `A>` prompt** with a
 > real disk image served through the HLE BIOS. You can run the classic software
 > (Zork, Turbo Pascal, WordStar, MBASIC, dBASE …), mount persistent multi-drive
 > disks and write files back to them, and break into a built-in debug monitor at
-> any time. The fastest way in is `make play` (see [Quick start](#quick-start)),
-> or, with nothing to install, **[CP/M in your browser](https://cpemulator.degel.com/)**.
+> any time (on the desktop). The fastest way in is
+> **[CP/M in your browser](https://cpemulator.degel.com/)**, with nothing to install;
+> on your own computer, it's `make play` (see [Quick start](#quick-start)).
 > See [Project status](#project-status) for the full capability list and the few
 > known limits. To work *on* CPeMulator, start with
 > [`dev-docs/`](dev-docs/README.md).
@@ -26,6 +32,7 @@ rather than re-implementing the operating system in Rust.
 ## Table of contents
 
 - [How this was built](#how-this-was-built)
+- [Two ways to run it](#two-ways-to-run-it)
 - [Try it in your browser](#try-it-in-your-browser)
 - [Quick start](#quick-start)
 - [What is CP/M, and why emulate it?](#what-is-cpm-and-why-emulate-it)
@@ -56,6 +63,20 @@ result is a working machine that boots real CP/M and runs real vintage software;
 the developer docs in [`dev-docs/`](dev-docs/README.md) record the design and the
 reasoning behind it.
 
+## Two ways to run it
+
+| | In your browser | On your computer (desktop) |
+|---|---|---|
+| **Getting started** | Open <https://cpemulator.degel.com/> | Install Rust, then `make setup` and `make play` ([Quick start](#quick-start)) |
+| **Software** | A fresh disk holds DRI's CP/M utilities; **Get software** fetches the classic library, which you then drop on the page | `make setup` downloads the classic library and installs it, ready to run |
+| **Your files** | One 8 MB drive A:, kept in the browser; **Save disk** and **Load disk** move it as a `.dsk` file | `.dsk` files on your computer, several drives (A: to P:), written back when you quit |
+| **Debug monitor** | Not yet | Yes: **Ctrl-\\** at any time |
+| **Speed** | 2, 4, 8 or 25 MHz, or Max | Any clock (`--mhz=N`), or unthrottled (`--fast`) |
+| **Keys** | Buttons for the control keys a browser keeps for itself (Ctrl-W, Ctrl-T, Ctrl-N) | Your terminal's own keyboard, plus `--arrows` for WordStar-style editors |
+
+A disk saved in one opens in the other: the browser's **Save disk** writes a `.dsk`
+that the desktop mounts with `--disk=`, and the desktop's images load in the browser.
+
 ## Try it in your browser
 
 **<https://cpemulator.degel.com/>** runs the same emulator compiled to
@@ -64,7 +85,7 @@ Research's own utilities on drive A: (PIP, STAT, ED, ASM, LOAD, DDT, DUMP,
 SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
 `ASM DUMP`, `LOAD DUMP`, `DUMP DUMP.COM`.
 
-- **The software library:** **Get software** lists the native version's software
+- **The software library:** **Get software** lists the desktop version's software
   (Zork, Turbo Pascal, WordStar, MBASIC, dBASE II, games, compilers). Click
   **Get all** (or pick programs), then drop the downloaded files on the page
   together: the page puts the right files on A:, installs WordStar for the
@@ -75,7 +96,7 @@ SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
   but anything you have can be added; see
   [Finding more software](#finding-more-software) for where to get it.
 - **Keep your work with Save disk.** It saves drive A: as a `.dsk` file, which
-  **Load disk** brings back and the native version mounts with `--disk=`. The
+  **Load disk** brings back and the desktop version mounts with `--disk=`. The
   disk is also kept in your browser between visits (nothing is sent anywhere),
   but browsers may clear their storage on their own, so the saved file is your
   real copy. The status line says when the disk has changed since you saved it.
@@ -84,12 +105,15 @@ SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
   **Ctrl-T** and **Ctrl-N** buttons under the screen, or **Ctrl + …** then any key.
 - **Speed** sets the emulated clock: 4 MHz by default, or **Max**.
 
-The debug monitor is only in the native version for now. How the browser build
-works is in [`dev-docs/browser.md`](dev-docs/browser.md).
+The page's own help (below the screen) covers CP/M basics, wildcards and the
+library. The desktop version adds a debug monitor, several drives and real files on
+your computer; see [Two ways to run it](#two-ways-to-run-it). How the browser
+build works is in [`dev-docs/browser.md`](dev-docs/browser.md).
 
 ## Quick start
 
-From a bare checkout to running classic CP/M software in four steps:
+To run it on your own computer (the desktop version), from a bare checkout to
+running classic CP/M software in four steps:
 
 ```bash
 # 1. Install a recent stable Rust toolchain (edition 2024; developed against
@@ -149,9 +173,11 @@ real machine's boot ROM would — and jumps into them. The one piece CPeMulator
 provides itself is the **BIOS**, the small hardware-specific layer CP/M uses for
 console and disk I/O. Rather than running a BIOS as Z80 code, CPeMulator uses a tiny
 guest BIOS *stub* that traps into Rust ("high-level emulation"), so console
-characters go to your terminal and disk sectors are served from `.dsk` image
-files. The result is genuine CP/M running on emulated hardware, with the I/O
-plumbed cleanly into the host. For the reasoning behind these choices, see
+characters go to your terminal (or the terminal on the web page) and disk sectors
+are served from `.dsk` images (files on your computer, or a disk kept in the
+browser). The result is genuine CP/M running on emulated hardware, with the I/O
+plumbed cleanly into the host. The same code runs both versions: the browser's is
+compiled to WebAssembly. For the reasoning behind these choices, see
 [`dev-docs/architecture.md`](dev-docs/architecture.md).
 
 ## Project status
@@ -164,12 +190,14 @@ pieces are built and tested:
   standard `zexdoc` exerciser, which it **passes**.
 - **The machine** — RAM, the I/O bus, and the HLE-BIOS trap mechanism that boots
   the genuine Digital Research CCP and BDOS straight off a disk image.
-- **Disk** — read/write `.dsk` images (8" floppy or 8 MB hard disk), multiple
-  drives (A..P), with in-CP/M changes saved back atomically on exit.
-- **Console** — your terminal as the CP/M console, with TeleVideo TVI-950 → ANSI
-  translation so full-screen programs display correctly.
-- **Debug monitor** — an interactive DDT-style debugger over the live Z80
-  (breakpoints, single-step/trace, disassembly, register/memory inspect+edit),
+- **Disk** — read/write `.dsk` images (8" floppy or 8 MB hard disk). On the
+  desktop: multiple drives (A..P), with in-CP/M changes saved back atomically on
+  exit. In the browser: drive A:, kept in the browser and saved as a `.dsk`.
+- **Console** — your terminal as the CP/M console (or, in the browser, a terminal
+  on the page), with TeleVideo TVI-950 → ANSI translation so full-screen programs
+  display correctly.
+- **Debug monitor** (desktop) — an interactive DDT-style debugger over the live
+  Z80 (breakpoints, single-step/trace, disassembly, register/memory inspect+edit),
   reachable at any time with **Ctrl-\\**.
 - **In a web browser** — the same emulator compiled to WebAssembly, with an
   xterm.js terminal, a software library, adding files, and the disk kept in the browser
@@ -189,9 +217,12 @@ roadmap, see [`dev-docs/`](dev-docs/README.md).
 
 ## Running classic CP/M software
 
-The fun part. [Quick start](#quick-start) gets you to a fully-loaded machine with
-`make setup` then `make play`; this section is what's behind those two targets and
-everything you can do once you're there.
+The fun part. This section is about the **desktop version**: in the browser,
+**Get software** offers the same library (see
+[Try it in your browser](#try-it-in-your-browser)), and once a program is on the
+disk it runs the same way in both. [Quick start](#quick-start) gets you to a
+fully-loaded machine with `make setup` then `make play`; this section is what's
+behind those two targets and everything you can do once you're there.
 
 ```bash
 make setup    # once: download a library of classic CP/M software + install WordStar
@@ -248,9 +279,10 @@ cargo run -- --mhz=2 software/LADDER.COM software/LADDER.DAT  # slow it down
 ### Finding more software
 
 The fetch script grabs a curated starter set, but there is far more out there.
-To run anything else, drop its `.COM` (and any data files) into `software/` and
-re-run `make play`, or pass it on the command line. Large, well-organized
-archives to dig through:
+To run anything else on the desktop, drop its `.COM` (and any data files) into
+`software/` and re-run `make play`, or pass it on the command line. In the
+browser, use **Your disk → Add files**, or drop the files (or a `.zip` of them) on
+the page. Large, well-organized archives to dig through:
 
 - [The *Humongous* CP/M Software Archives](http://www.classiccmp.org/cpmarchives/)
   — the Walnut Creek CP/M CD-ROM plus a huge collection of commercial software.
@@ -263,7 +295,9 @@ archives to dig through:
 
 ### Options
 
-Run `cargo run -- --help` for the full list. The most useful:
+These are the desktop version's command-line flags (the browser has its Speed menu
+and key buttons instead). Run `cargo run -- --help` for the full list. The most
+useful:
 
 | Flag | Effect |
 |------|--------|
@@ -290,13 +324,16 @@ fit the BIOS work area.
 
 ### Keys
 
+On the desktop (for the browser, see [Try it in your browser](#try-it-in-your-browser)):
+
 - **Ctrl-\\** — break into the debug monitor (always works, even from a stuck program); `q` there quits the emulator, `g` resumes.
 - **Ctrl-C** — CP/M's own warm boot, back to `A>` (when the running program lets it).
 - To leave a *program*, use its own command — MBASIC `SYSTEM`, dBASE `QUIT`, etc.
 
 ### The debug monitor
 
-Press **Ctrl-\\** at any time to pause CP/M and drop into a built-in monitor
+The desktop version only, for now. Press **Ctrl-\\** at any time to pause CP/M
+and drop into a built-in monitor
 (a `-` prompt). It's a DDT-style machine-level debugger over the live Z80;
 numbers are hexadecimal:
 
@@ -317,7 +354,7 @@ doesn't disturb the running session.
 
 ### Full-screen apps
 
-The console translates **TeleVideo TVI-950** terminal codes to ANSI (plus the
+Both versions translate **TeleVideo TVI-950** terminal codes to ANSI (plus the
 ADM-3A's `^Z`/`^^` it shares lineage with), so full-screen programs (Ladder, the
 Turbo Pascal editor, PACMAN95) display correctly, while plain text and modern
 `ESC[` sequences pass straight through. The TVI-950 was one of the most common
@@ -333,11 +370,13 @@ CPeMulator is a real CP/M machine, so you can develop *for* CP/M two ways.
 as-is: the CP/M assembler (`ASM`) and `DDT` debugger, the BDS C compiler, Turbo
 Pascal, and Microsoft BASIC. Write source with `ED` (or edit it on the host and
 copy the file in), assemble or compile, and run — the whole early-1980s workflow,
-end to end. Mount a persistent disk with `--disk=work.dsk` so your sources and
-binaries survive across sessions.
+end to end. On the desktop, mount a persistent disk with `--disk=work.dsk` so your
+sources and binaries survive across sessions; in the browser, the disk is kept
+between visits, and **Save disk** keeps a copy as a file.
 
 **On the host**, modern cross-compilers target Z80/CP/M and emit `.COM` files you
-can drop into `software/` and run:
+can drop into `software/` and run (or add to the browser's disk with **Add
+files**):
 
 - [z88dk](https://z88dk.org/) — a C compiler, assembler, and linker for Z80
   machines that builds CP/M binaries directly (it wraps
@@ -358,7 +397,7 @@ example of real CP/M code.
 CPeMulator/
 ├── Cargo.toml            Workspace manifest
 ├── README.md             You are here
-├── Makefile              Developer tasks (make check, fmt, lint, test)
+├── Makefile              Tasks: make play / run (desktop), make web-serve (browser), make check
 ├── crates/
 │   ├── cpu/              cpemu-cpu: the Z80/8080 CPU core (a standalone library)
 │   ├── cpemu/            cpemu: the system layer and CLI binary
@@ -389,7 +428,8 @@ works inside, the day-to-day workflow, and the roadmap — lives in
 
 The short version for hacking: it's a standard Rust workspace —
 `cargo build --workspace`, `cargo test --workspace`, and `make check` for the
-full format-lint-test gate that CI enforces.
+full format-lint-test gate that CI enforces. For the browser version,
+`make web-serve` builds and serves the page locally and `make web-smoke` tests it.
 
 ## Licensing and third-party code
 

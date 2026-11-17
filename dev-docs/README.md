@@ -16,6 +16,7 @@ When you make a design decision worth remembering, write it down here.
 | [architecture.md](architecture.md) | The whole-system design: what we emulate, the big architectural choices (genuine CP/M + HLE BIOS, authentic boot, disk model), and the reasoning and trade-offs behind each. Start here. |
 | [cpu-core.md](cpu-core.md) | How the `cpemu-cpu` crate works inside: the register model, flag handling, the `Bus` trait, the structured opcode decode, and how a single instruction executes. |
 | [development.md](development.md) | Day-to-day workflow: the toolchain, `make` targets, CI, the issue tracker (beads), commit conventions, and how to validate the CPU. |
+| [host-file-io.md](host-file-io.md) | Moving files between the host and CP/M, in the desktop and browser versions: importing, getting files out, `.dsk` images, and the printer/punch/reader devices. |
 | [browser.md](browser.md) | The browser build: compiling to WebAssembly, the run loop that never blocks, the web page and its control panel, saving the disk, building, testing and deploying. |
 | [roadmap.md](roadmap.md) | The plan: the epics, their dependency order, current status, and notes on decisions that were deliberately deferred. |
 

@@ -125,3 +125,40 @@ bd prime                # Refresh Beads context
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->
+
+## Build & Test
+
+```bash
+make check        # the gate CI enforces: fmt, clippy, tests, and a wasm32 compile check
+make run          # desktop version: a bare CP/M session (Ctrl-\ opens the monitor; q quits)
+make setup        # once: download the classic software library (desktop)
+make play         # desktop version with the whole library on drive A:
+make web-serve    # browser version, built and served at http://localhost:8000/
+make web-smoke    # browser version, built and tested in Node (what the deploy runs)
+cargo test -p cpemu-cpu --release --test exercisers -- --ignored   # the Z80 exercisers (zexdoc)
+```
+
+A push to `main` deploys the browser version to https://cpemulator.degel.com/ (via
+`.github/workflows/pages.yml`).
+
+## Architecture Overview
+
+A Z80 CP/M 2.2 emulator in Rust that boots the genuine Digital Research CCP and BDOS
+through a high-level-emulated BIOS. One emulator library serves two front ends: the
+**desktop** CLI, in a host terminal, and the **browser** version, compiled to
+WebAssembly and live at https://cpemulator.degel.com/. Crates: `crates/cpu` (the
+Z80), `crates/cpemu` (the system layer and the CLI), `crates/web` (the browser
+wrapper); the web page is `web/www`. Start with `dev-docs/README.md`; the browser
+build is `dev-docs/browser.md`.
+
+## Conventions & Patterns
+
+- Docs are part of every task: `README.md` for users (covering both the desktop and
+  browser versions), `dev-docs/` for developers. Favor clarity over brevity.
+- One logical change per commit, naming its bead in the subject.
+- This repository is public, and so are its beads and their memories: keep them,
+  like the docs and commit messages, to engineering (see `~/CLAUDE.md`, "A Public
+  Repo's Beads Are Public").
+- The web page's wording rules are in `dev-docs/browser.md`: Get / Add files bring
+  things in, Save disk / Load disk move the disk; no "Download" and no ellipsis on
+  any button.

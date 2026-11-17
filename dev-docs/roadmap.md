@@ -34,7 +34,7 @@ The workspace, tooling, and groundwork.
 - [x] Verify CP/M license + vendor genuine CCP+BDOS source (`third-party/cpm22/`)
 - [x] Lint / format / test + GitHub Actions CI
 
-### [~] Z80/8080 CPU core — `cpemu-yd5`
+### [x] Z80/8080 CPU core — `cpemu-yd5`
 A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - [x] CPU scaffolding — registers, flags, `Bus`, observable `StepResult`, T-states
 - [x] 8080 base instruction set (the full unprefixed opcode map, Z80 flag semantics)
@@ -46,7 +46,7 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - [x] Exerciser harness — **zexdoc passes** (every documented-instruction group,
   ~31s in release). `prelim` runs in CI; `zexall` is one group short (the
   `BIT n,(HL)` undocumented-flag case needs the WZ/MEMPTR register — a stretch
-  goal, tracked separately).
+  goal, deferred as `cpemu-yd5.7`).
 
 ### [x] Virtual machine & memory — `cpemu-g47`
 - [x] 64 KB `Memory` and the memory bus
@@ -65,13 +65,14 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
 - [x] Console BIOS calls (CONST/CONIN/CONOUT/LIST/PUNCH/READER)
 - [x] Disk BIOS calls (SELDSK→DPH/DPB, SETTRK/SETSEC/SETDMA/READ/WRITE/SECTRAN)
 
-### [~] Disk subsystem — `cpemu-9br`
+### [x] Disk subsystem — `cpemu-9br`
 - [x] Virtual disk abstraction (`DiskFormat`: 8" floppy + DPB)
 - [x] CP/M directory + allocation tooling (`add_file`, place files on a disk)
 - [x] 8 MB hard-disk format (16-bit allocation, the CP/M 2.2 drive maximum) — the
   default drive; holds the whole software catalog
-- [ ] `.dsk` sector-image load/save (mount real images; persist a disk)
-- [ ] Drive mapping / mounting (multiple drives B:/C:/…)
+- [x] `.dsk` sector-image load/save (`--disk=`: mount real images; changes are
+  saved back atomically on exit)
+- [x] Drive mapping / mounting (multiple drives, A: to P:)
 
 ### [x] Console & terminal — `cpemu-7m4`
 - [x] Console abstraction (`Console` trait; scripted console for headless/tests)
@@ -80,22 +81,27 @@ A correct Z80 (superset of the 8080), proven against the standard exercisers.
   (`terminal.rs`) so full-screen apps (Ladder, the Turbo editor, PACMAN95)
   display; modern `ESC[` passes through; `--raw` opts out
 
-### [ ] Debugger / monitor — `cpemu-6o2`
-The interactive frontend: breakpoints, single-step, register/memory inspect+edit,
-disassembly, instruction trace. Depends on the CPU (and its disassembler).
+### [x] Debugger / monitor — `cpemu-6o2`
+A DDT-style monitor over the live Z80, opened with Ctrl-\\ at any time:
+breakpoints, single-step and trace, register and memory inspect and edit,
+disassembly (`crates/cpemu/src/monitor.rs`, `debugger.rs`). Desktop only; a browser
+debugger is `cpemu-q61`, in Phase 2.
 
-### [ ] CLI & config — `cpemu-4ur`
-Argument parsing, config file, disk mounts, machine selection, throttle controls.
+### [x] CLI & config — `cpemu-4ur`
+Argument parsing, a config file (`~/.config/cpemu/config`), disk mounts
+(`--disk=`), machine selection (`--machine=`), and throttle controls (`--mhz=`,
+`--fast`). See the README's Options table.
 
-### [.] Host-directory drives — `cpemu-ntn` (deferred)
+### [.] Host-directory drives — `cpemu-ntn` (deferred until a full filesystem is needed)
 Mapping a host directory to a CP/M drive. Deferred because, with a genuine BDOS,
 it requires synthesizing a live CP/M file system — the project's single biggest
 hidden cost. See
 [architecture.md](architecture.md#decision-5-disk-model--real-images-now-host-directories-later).
 
-### [ ] Integration & vintage-software validation — `cpemu-uvv`
-Boot CP/M to the `A>` prompt, then run real software (MBASIC, Turbo Pascal, Zork,
-WordStar) as acceptance tests.
+### [x] Integration & vintage-software validation — `cpemu-uvv`
+Genuine CP/M boots to `A>` and runs real software: MBASIC, Turbo Pascal, Zork,
+WordStar, dBASE II and more. `make setup` then `make play` builds the full
+software library and boots with it.
 
 ### [x] Boot CP/M in the browser — `cpemu-y1b`
 The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
@@ -120,6 +126,14 @@ The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
 
 Next, in Phase 2 (`cpemu-81c`): a browser debugger, a software launcher, deep
 links, an embeddable widget.
+
+### [ ] Phase 2: stickiness & distribution — `cpemu-81c`
+Building on the browser version. Each is its own bead:
+- [ ] A software launcher with hosted, one-click entries and provenance (`cpemu-vg7`);
+  the link-only Get software panel is its first version
+- [ ] A web debugger UI, promoting the built-in monitor (`cpemu-q61`)
+- [ ] Shareable deep links: boot a program, restore a disk (`cpemu-7ci`)
+- [ ] An embeddable web component or iframe widget (`cpemu-t93`)
 
 ## Deferred decisions
 

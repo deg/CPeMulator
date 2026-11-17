@@ -162,14 +162,16 @@ CPeMulator's authenticity is what makes it harder.)
 
 ## Decision 6: Console — your terminal, with optional fidelity
 
-CP/M programs expect to talk to a serial terminal. By default CPeMulator uses your
-host terminal in raw mode and passes ANSI/VT100 escape sequences through, which
+CP/M programs expect to talk to a serial terminal. On the desktop, CPeMulator uses
+your host terminal in raw mode and passes ANSI/VT100 escape sequences through, which
 works well in any modern terminal. For screen-oriented applications that target
 an *older* terminal, `terminal.rs` translates the **TeleVideo TVI-950** code set
 (cursor addressing, the clear/erase forms, line insert/delete, half-intensity) —
 plus the ADM-3A's `^Z`/`^^` — onto your host terminal's ANSI. The TVI-950 is what
 the bundled full-screen software actually drives (some of it under the label
-"Microbee VDU", a TeleVideo-compatible screen). `--raw` disables translation.
+"Microbee VDU", a TeleVideo-compatible screen). `--raw` disables translation. The
+browser version applies the same translation and shows the result in an xterm.js
+terminal on the page (Decision 7).
 
 When a display bug only reproduces interactively (e.g. a game that seeds its RNG
 from how long you wait before the first keypress, so it never reaches gameplay in
@@ -189,9 +191,9 @@ back to a browser between animation frames. Code that only a native host can run
 `make check` confirms the library still builds for wasm32. See
 [browser.md](browser.md).
 
-## How a running system fits together (the eventual picture)
+## How a running system fits together
 
-Once the pieces below the application exist, a session looks like this:
+A session, in either version, looks like this:
 
 1. The **virtual machine** provides 64 KB of RAM, an I/O bus, and the mechanism
    by which the BIOS stub traps into Rust.
@@ -199,15 +201,18 @@ Once the pieces below the application exist, a session looks like this:
    image's system tracks and jumps in.
 3. **CCP** prints `A>` and reads a command. Disk and console access flow down
    through **BDOS** to the **BIOS stub**, which traps into Rust.
-4. Rust services those traps: console characters go to your **terminal**; disk
-   sectors come from the **disk subsystem** reading `.dsk` images.
+4. Rust services those traps: console characters go to your **terminal** (on the
+   desktop, the host terminal; in the browser, the terminal on the page); disk
+   sectors come from the **disk subsystem** reading `.dsk` images (files on the
+   desktop; in the browser, an image kept in the browser's storage).
 5. The **CPU** drives all of this by executing the genuine Z80 code of CCP, BDOS,
    and whatever application you load — instruction by instruction.
-6. A **monitor** can sit alongside, letting you breakpoint, single-step, and
-   inspect the running machine.
+6. On the desktop, a **monitor** sits alongside, letting you breakpoint,
+   single-step, and inspect the running machine.
 
-The current code implements the CPU at the bottom of this stack; the layers above
-are built in [roadmap](roadmap.md) order.
+Every layer in this picture is built (see the [roadmap](roadmap.md)). In the
+browser, the same stack runs compiled to WebAssembly, driven a slice at a time by
+the page (Decision 7).
 
 ## Where decisions are recorded
 
