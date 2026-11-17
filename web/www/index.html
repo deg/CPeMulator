@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPeMulator</title>
+<link rel="stylesheet" href="vendor/xterm/xterm.css">
+<style>
+  :root { --bg: #1b1b1b; --fg: #e6e6e6; --dim: #9a9a9a; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font-family: system-ui, sans-serif; }
+  main { max-width: 60rem; margin: 0 auto; padding: 1rem 16px; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 .25rem; }
+  p.sub { margin: 0 0 1rem; color: var(--dim); font-size: .9rem; }
+  #term { padding: 8px; background: #000; border-radius: 6px; overflow-x: auto; }
+  #status { margin-top: .5rem; color: var(--dim); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CPeMulator</h1>
+  <p class="sub">Genuine CP/M 2.2 on an emulated Z80, running in your browser. Click the screen and type.</p>
+  <div id="term"></div>
+  <div id="status">Loading…</div>
+</main>
+<script type="module">
+import { Terminal } from "./vendor/xterm/xterm.mjs";
+import init, { Emulator } from "./pkg/cpemu_web.js";
+
+const MHZ = 4;                 // emulated clock
+const MAX_FRAME_MS = 100;      // don't sprint to catch up after a hidden tab
+const status = document.getElementById("status");
+
+const term = new Terminal({ cols: 80, rows: 24, cursorBlink: true,
+                            fontFamily: "ui-monospace, Menlo, Consolas, monospace" });
+term.open(document.getElementById("term"));
+
+await init();
+const emu = new Emulator();
+const encoder = new TextEncoder();
+let idle = false;
+let last = performance.now();
+
+term.onData((text) => {
+  emu.typeBytes(encoder.encode(text));
+  if (idle) { idle = false; last = performance.now(); requestAnimationFrame(frame); }
+});
+
+function frame(now) {
+  const dt = Math.min(now - last, MAX_FRAME_MS);
+  last = now;
+  const state = emu.run(Math.max(1, Math.round(MHZ * 1000 * dt)));
+  const out = emu.takeOutput();
+  if (out.length) term.write(out);
+  if (state === "running") {
+    requestAnimationFrame(frame);
+  } else if (state === "idle") {
+    idle = true;           // resumed by the next keystroke
+  } else {
+    status.textContent = `Machine ${state}. Reload the page to restart.`;
+    return;
+  }
+  status.textContent = `${MHZ} MHz Z80 · ${idle ? "waiting for a key" : "running"}`;
+}
+requestAnimationFrame(frame);
+term.focus();
+</script>
+</body>
+</html>

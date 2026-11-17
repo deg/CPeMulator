@@ -1,0 +1,4 @@
+@xterm/xterm 6.0.0 from the npm registry, 2026-11-17.
+Tarball sha512 (matches registry dist.integrity):
+TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg==
+Files copied unchanged: lib/xterm.mjs, css/xterm.css, LICENSE (MIT).
