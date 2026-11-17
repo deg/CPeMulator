@@ -23,6 +23,7 @@
 
 mod bundle;
 
+use cpemu::disk::{Disk, DiskError, DiskFormat};
 use cpemu::session::{ConsoleOptions, RunState, Session, SessionError};
 use wasm_bindgen::prelude::*;
 
@@ -43,6 +44,71 @@ impl Emulator {
         let disk = bundle::default_disk();
         let session = Session::new(disk, vec![], ConsoleOptions::default()).map_err(describe)?;
         Ok(Emulator { session })
+    }
+
+    /// Cold-boot CP/M from a saved drive-A: image (what
+    /// [`diskImage`](Emulator::disk_image) returned, or a `.dsk` file). Its size
+    /// picks the format: an 8" floppy or an 8 MB hard disk.
+    #[wasm_bindgen(js_name = fromImage)]
+    pub fn from_image(image: Vec<u8>) -> Result<Emulator, JsError> {
+        console_error_panic_hook::set_once();
+        let format = DiskFormat::for_image_size(image.len()).ok_or_else(|| {
+            JsError::new(&format!(
+                "{} bytes is not a CPeMulator disk image ({} = 8\" floppy, {} = 8 MB hard disk)",
+                image.len(),
+                DiskFormat::floppy_8inch().image_len(),
+                DiskFormat::hard_8mb().image_len(),
+            ))
+        })?;
+        let disk = Disk::from_image(format, image).map_err(|e| describe(SessionError::Disk(e)))?;
+        let session = Session::new(disk, vec![], ConsoleOptions::default()).map_err(describe)?;
+        Ok(Emulator { session })
+    }
+
+    /// Put a file on drive A: (replacing one of the same name) and warm-boot,
+    /// which ends any running program, so CP/M sees it. `name` must be a CP/M
+    /// `8.3` name.
+    #[wasm_bindgen(js_name = putFile)]
+    pub fn put_file(&mut self, name: &str, bytes: Vec<u8>) -> Result<(), JsError> {
+        self.session.put_file(0, name, bytes).map_err(describe)
+    }
+
+    /// Drive A:'s whole sector image, to save in the browser or download.
+    #[wasm_bindgen(js_name = diskImage)]
+    pub fn disk_image(&self) -> Vec<u8> {
+        self.session
+            .disk(0)
+            .map(|d| d.image().to_vec())
+            .unwrap_or_default()
+    }
+
+    /// A count that grows whenever drive A: is written. Save the image again
+    /// only when it differs from the count at the last save.
+    #[wasm_bindgen(js_name = diskChanges)]
+    pub fn disk_changes(&self) -> f64 {
+        self.session.disk(0).map_or(0.0, |d| d.changes() as f64)
+    }
+
+    /// The contents of a file on drive A:, or `undefined` if there is none.
+    /// CP/M stores sizes in 128-byte records, so a text file comes back padded
+    /// with `^Z`.
+    #[wasm_bindgen(js_name = readFile)]
+    pub fn read_file(&self, name: &str) -> Option<Vec<u8>> {
+        self.session.disk(0)?.read_file(name)
+    }
+
+    /// The names of the files on drive A:.
+    pub fn files(&self) -> Vec<String> {
+        self.session
+            .disk(0)
+            .map(Disk::list_files)
+            .unwrap_or_default()
+    }
+
+    /// Warm-boot CP/M (like `^C` at the prompt), abandoning any running program.
+    #[wasm_bindgen(js_name = warmBoot)]
+    pub fn warm_boot(&mut self) {
+        self.session.warm_boot();
     }
 
     /// Queue keys, as the bytes a terminal sends (xterm.js `onData` text,
@@ -80,9 +146,18 @@ impl Emulator {
 }
 
 fn describe(e: SessionError) -> JsError {
-    match e {
-        SessionError::WorkAreaTooLarge { needed, capacity } => JsError::new(&format!(
+    JsError::new(&match e {
+        SessionError::WorkAreaTooLarge { needed, capacity } => format!(
             "the drives need {needed} bytes of BIOS work area but only {capacity} are available"
-        )),
-    }
+        ),
+        SessionError::NoDrive(d) => format!("no disk in drive {}:", char::from(b'A' + d)),
+        SessionError::Disk(DiskError::BadName(n)) => {
+            format!("\"{n}\" is not a CP/M file name (up to 8 letters, a dot, up to 3)")
+        }
+        SessionError::Disk(DiskError::DirectoryFull) => "the disk's directory is full".into(),
+        SessionError::Disk(DiskError::DiskFull) => "the disk is full".into(),
+        SessionError::Disk(DiskError::BadImageSize { got, want }) => {
+            format!("a {got}-byte image does not match its format ({want} bytes)")
+        }
+    })
 }

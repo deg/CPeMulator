@@ -149,6 +149,14 @@ impl<C: Console> CpmBios<C> {
         self.disks.get(drive as usize).and_then(|d| d.as_ref())
     }
 
+    /// The disk mounted as `drive`, mutably, for the host to change its files.
+    /// BDOS caches a drive's allocation map from when it last logged the drive
+    /// in, so after changing files under a running system, warm-boot it (which
+    /// re-logs every drive) before the guest writes to that drive.
+    pub fn disk_at_mut(&mut self, drive: u8) -> Option<&mut Disk> {
+        self.disks.get_mut(drive as usize).and_then(|d| d.as_mut())
+    }
+
     /// Bytes of BIOS work area (DPH/DPB/dir buffer/alloc & checksum vectors) the
     /// currently mounted drives need.
     pub fn work_area_bytes(&self) -> usize {

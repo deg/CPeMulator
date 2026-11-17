@@ -172,6 +172,9 @@ pub enum DiskError {
 pub struct Disk {
     data: Vec<u8>,
     format: DiskFormat,
+    /// Counts writes to the image, from the guest or the host. See
+    /// [`changes`](Disk::changes).
+    changes: u64,
 }
 
 impl Disk {
@@ -185,6 +188,7 @@ impl Disk {
         Self {
             data: vec![EMPTY; format.total_sectors() * SECTOR_SIZE],
             format,
+            changes: 0,
         }
     }
 
@@ -201,6 +205,16 @@ impl Disk {
         disk.data[..ccp.len()].copy_from_slice(ccp);
         disk.data[ccp.len()..ccp.len() + bdos.len()].copy_from_slice(bdos);
         disk
+    }
+
+    /// A counter that grows whenever the image is written, by the guest
+    /// (BIOS `WRITE`) or by the host (adding or removing files). A host that
+    /// keeps the image somewhere (the browser saves it locally) compares this
+    /// with the value at its last save to know whether to save again, instead
+    /// of comparing whole images. It may also grow on a write that leaves the
+    /// bytes unchanged.
+    pub fn changes(&self) -> u64 {
+        self.changes
     }
 
     /// This disk's format.
@@ -234,6 +248,7 @@ impl Disk {
         Ok(Self {
             data: bytes,
             format,
+            changes: 0,
         })
     }
 
@@ -277,6 +292,7 @@ impl Disk {
 
     /// Write one 128-byte sector (`buf` must be 128 bytes).
     pub fn write_sector(&mut self, track: usize, sector: usize, buf: &[u8]) {
+        self.changes += 1;
         let o = self.offset(track, sector);
         self.data[o..o + SECTOR_SIZE].copy_from_slice(buf);
     }
@@ -309,6 +325,7 @@ impl Disk {
 
     /// Write directory entry `idx`.
     fn set_dir_entry(&mut self, idx: usize, entry: &[u8; DIR_ENTRY_SIZE]) {
+        self.changes += 1;
         let byte = idx * DIR_ENTRY_SIZE;
         let (t, s) = self.data_location(byte / SECTOR_SIZE);
         let o = self.offset(t, s) + byte % SECTOR_SIZE;
@@ -317,6 +334,7 @@ impl Disk {
 
     /// Write up to one block of file data into allocation block `block`.
     fn write_block(&mut self, block: usize, data: &[u8]) {
+        self.changes += 1;
         let spb = self.format.sectors_per_block();
         for i in 0..spb {
             let (t, s) = self.data_location(block * spb + i);
@@ -469,6 +487,35 @@ impl Disk {
         Some(out)
     }
 
+    /// Erase a file from user area 0, as CP/M's `ERA` does: every directory
+    /// extent with this name is marked empty, which also frees its blocks
+    /// (CP/M derives the allocation map from the directory). Attribute bits
+    /// (R/O, System, Archive) are ignored when matching. Returns whether
+    /// anything was erased.
+    pub fn remove_file(&mut self, filename: &str) -> Result<bool, DiskError> {
+        let (name, ext) = parse_filename(filename)?;
+        let same = |a: &[u8], b: &[u8]| a.iter().zip(b).all(|(x, y)| x & 0x7F == *y);
+        let mut erased = false;
+        for idx in 0..self.format.dir_entries {
+            let mut e = self.dir_entry(idx);
+            if e[0] == 0 && same(&e[1..9], &name) && same(&e[9..12], &ext) {
+                e[0] = EMPTY;
+                self.set_dir_entry(idx, &e);
+                erased = true;
+            }
+        }
+        Ok(erased)
+    }
+
+    /// Place a file on the disk, replacing any file of the same name in user
+    /// area 0. If the new contents do not fit, the disk is left as it was.
+    pub fn put_file(&mut self, filename: &str, data: &[u8]) -> Result<(), DiskError> {
+        let before = self.data.clone();
+        self.remove_file(filename)?;
+        self.add_file(filename, data)
+            .inspect_err(|_| self.data = before)
+    }
+
     /// Read one allocation block's raw bytes from the data area.
     fn read_block(&self, block: usize) -> Vec<u8> {
         let spb = self.format.sectors_per_block();
@@ -520,7 +567,16 @@ pub fn write_image(path: &Path, bytes: &[u8]) -> io::Result<()> {
 fn parse_filename(filename: &str) -> Result<([u8; 8], [u8; 3]), DiskError> {
     let upper = filename.trim().to_ascii_uppercase();
     let (name, ext) = upper.split_once('.').unwrap_or((upper.as_str(), ""));
-    if name.is_empty() || name.len() > 8 || ext.len() > 3 {
+    // CP/M names are printable ASCII without spaces or the characters the CCP
+    // treats as separators or wildcards. A name with any of these could be put
+    // on the disk but never typed at the prompt. (A second '.' lands in `ext`
+    // and is caught here too.)
+    let legal = |c: u8| c.is_ascii_graphic() && !b"<>.,;:=?*[]".contains(&c);
+    if name.is_empty()
+        || name.len() > 8
+        || ext.len() > 3
+        || !name.bytes().chain(ext.bytes()).all(legal)
+    {
         return Err(DiskError::BadName(filename.to_string()));
     }
     let mut name_buf = [b' '; 8];
@@ -598,6 +654,66 @@ mod tests {
         // DPB SPT and OFF agree with the geometry.
         assert_eq!(u16::from(h.dpb[0]) as usize, h.sectors_per_track);
         assert_eq!(u16::from(h.dpb[13]) as usize, h.system_tracks);
+    }
+
+    #[test]
+    fn changes_count_guest_and_host_writes() {
+        let mut d = Disk::blank();
+        assert_eq!(d.changes(), 0);
+        d.write_sector(2, 0, &[0u8; SECTOR_SIZE]);
+        assert_eq!(d.changes(), 1);
+        d.add_file("A.COM", b"x").unwrap();
+        let after_add = d.changes();
+        assert!(after_add > 1);
+        let _ = d.read_file("A.COM");
+        let _ = d.list_files();
+        assert_eq!(d.changes(), after_add); // reading changes nothing
+    }
+
+    #[test]
+    fn untypeable_names_are_refused() {
+        let mut d = Disk::blank();
+        for bad in [
+            "MY FILE.COM",
+            "A.B.C",
+            "WILD*.COM",
+            "Q?.TXT",
+            "CAFÉ.TXT",
+            "A:B.COM",
+            "",
+        ] {
+            assert!(
+                matches!(d.add_file(bad, b"x"), Err(DiskError::BadName(_))),
+                "{bad:?} was accepted"
+            );
+        }
+        for good in ["-LBR.NOT", "ZORK1.DAT", "readme", "x_y.$$$"] {
+            d.add_file(good, b"x").unwrap();
+        }
+    }
+
+    #[test]
+    fn put_file_replaces_and_remove_frees() {
+        let mut d = Disk::blank();
+        // A multi-extent file (40 KB spans three 16 KB extents).
+        d.add_file("BIG.DAT", &[1u8; 40 * 1024]).unwrap();
+        d.put_file("BIG.DAT", b"small").unwrap();
+        assert_eq!(d.list_files(), vec!["BIG.DAT"]); // one copy, not two
+        assert_eq!(&d.read_file("BIG.DAT").unwrap()[..5], b"small");
+        assert!(d.remove_file("big.dat").unwrap());
+        assert!(d.list_files().is_empty());
+        assert!(!d.remove_file("BIG.DAT").unwrap()); // already gone
+        // Freed space is reusable: the disk holds a near-full file again.
+        d.add_file("FULL.DAT", &vec![2u8; 200 * 1024]).unwrap();
+    }
+
+    #[test]
+    fn put_file_that_does_not_fit_keeps_the_old_file() {
+        let mut d = Disk::blank();
+        d.add_file("KEEP.TXT", b"original").unwrap();
+        let too_big = vec![0u8; 400 * 1024]; // more than a 241 KB floppy holds
+        assert!(d.put_file("KEEP.TXT", &too_big).is_err());
+        assert_eq!(&d.read_file("KEEP.TXT").unwrap()[..8], b"original");
     }
 
     #[test]

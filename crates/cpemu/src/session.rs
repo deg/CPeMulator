@@ -32,7 +32,7 @@
 
 use crate::bios::{Console, CpmBios, cold_boot_bios, work_area_bytes};
 use crate::config::MachineConfig;
-use crate::disk::Disk;
+use crate::disk::{Disk, DiskError, terminate_text_file};
 use crate::executor::{Executor, RunExit};
 use crate::keys::{KeyXlate, map_key};
 use crate::terminal::{Terminal, TerminalMode};
@@ -150,6 +150,10 @@ pub enum SessionError {
         /// Bytes available.
         capacity: usize,
     },
+    /// No disk is mounted as this drive (0 = A:).
+    NoDrive(u8),
+    /// The disk refused the change (bad name, directory or disk full).
+    Disk(DiskError),
 }
 
 /// A booted CP/M machine with a buffered console, run in slices by its host.
@@ -231,6 +235,28 @@ impl Session {
     pub fn disk(&self, drive: u8) -> Option<&Disk> {
         self.exec.bios.disk_at(drive)
     }
+
+    /// Put a host file on `drive` (replacing one of the same name), then warm
+    /// boot so CP/M sees it. Text files get the `^Z` end marker CP/M expects,
+    /// as in the CLI. The warm boot ends any running program, like `^C`.
+    pub fn put_file(&mut self, drive: u8, name: &str, bytes: Vec<u8>) -> Result<(), SessionError> {
+        let bytes = terminate_text_file(name, bytes);
+        let disk = self
+            .exec
+            .bios
+            .disk_at_mut(drive)
+            .ok_or(SessionError::NoDrive(drive))?;
+        disk.put_file(name, &bytes).map_err(SessionError::Disk)?;
+        self.warm_boot();
+        Ok(())
+    }
+
+    /// Warm-boot CP/M, as `^C` at the prompt does: reload the CCP and BDOS and
+    /// log in the drives afresh, so changes the host made to a disk are seen.
+    /// Any running program is abandoned. Takes effect on the next `run`.
+    pub fn warm_boot(&mut self) {
+        self.exec.cpu.regs.pc = MachineConfig::virtual_default().bios_vector(1);
+    }
 }
 
 #[cfg(test)]
@@ -284,6 +310,38 @@ mod tests {
         let out = run_to_idle(&mut s);
         assert!(out.contains("NO FILE"), "unexpected DIR output {out:?}");
         assert!(out.trim_end().ends_with("A>"), "no fresh prompt in {out:?}");
+    }
+
+    #[test]
+    fn uploaded_file_is_seen_and_runs() {
+        // A tiny .COM: print "HI" via BDOS function 9, then return to the CCP.
+        let hi = vec![
+            0x0E, 0x09, // LD C,9
+            0x11, 0x09, 0x01, // LD DE,0x0109
+            0xCD, 0x05, 0x00, // CALL 5
+            0xC9, // RET
+            b'H', b'I', b'$',
+        ];
+        let mut s = bare_session();
+        run_to_idle(&mut s);
+        s.put_file(0, "HI.COM", hi).unwrap();
+        run_to_idle(&mut s); // the warm boot prints a fresh prompt
+        s.type_bytes(b"dir\r");
+        let out = run_to_idle(&mut s);
+        assert!(out.contains("HI       COM"), "file not listed in {out:?}");
+        s.type_bytes(b"hi\r");
+        let out = run_to_idle(&mut s);
+        assert!(out.contains("HI"), "program did not run: {out:?}");
+        // The guest can write to the disk after the upload without corrupting it:
+        // SAVE 1 X.COM allocates a block, which must not overlap HI.COM's.
+        let before = s.disk(0).unwrap().changes();
+        s.type_bytes(b"save 1 x.com\r");
+        run_to_idle(&mut s);
+        // A write by the guest counts as a change, so a host knows to save.
+        assert!(s.disk(0).unwrap().changes() > before);
+        let d = s.disk(0).unwrap();
+        assert_eq!(d.read_file("HI.COM").unwrap()[..2], [0x0E, 0x09]);
+        assert!(d.list_files().contains(&"X.COM".to_string()));
     }
 
     #[test]
