@@ -349,8 +349,17 @@ async function putFiles(fileList) {
   const failed = [];
   for (const f of files) {
     try {
-      emu.putFile(f.name, new Uint8Array(await f.arrayBuffer()));
-      done.push(f.name.toUpperCase());
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      if (/\.zip$/i.test(f.name)) {
+        // Most CP/M software comes zipped: unpack it onto the disk.
+        const report = emu.putZip(bytes);
+        done.push(...report.put);
+        failed.push(...report.skipped.map((why) => `${f.name}, ${why}`));
+        report.free();
+      } else {
+        emu.putFile(f.name, bytes);
+        done.push(f.name.toUpperCase());
+      }
     } catch (e) {
       failed.push(`${f.name}: ${e.message ?? e}`);
     }
@@ -361,7 +370,15 @@ async function putFiles(fileList) {
     wake();
     if (!$("files").hidden) renderFiles();
   }
-  const msg = [done.length ? `Put on A: ${done.join(", ")}.` : "", ...failed].filter(Boolean).join(" ");
+  // A big archive can hold dozens of files: name a few, count the rest.
+  const list = (names) =>
+    names.length <= 8 ? names.join(", ") : `${names.slice(0, 6).join(", ")} and ${names.length - 6} more`;
+  const msg = [
+    done.length ? `Put on A: ${list(done)}.` : "",
+    failed.length ? `Not put on A: ${list(failed)}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   note(msg, failed.length > 0);
 }
 

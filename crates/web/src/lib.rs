@@ -22,6 +22,7 @@
 //! `web/www/index.html` is the page. See `dev-docs/browser.md`.
 
 mod bundle;
+mod unzip;
 
 use cpemu::disk::{Disk, DiskError, DiskFormat};
 use cpemu::session::{ConsoleOptions, RunState, Session, SessionError};
@@ -71,6 +72,26 @@ impl Emulator {
     #[wasm_bindgen(js_name = putFile)]
     pub fn put_file(&mut self, name: &str, bytes: Vec<u8>) -> Result<(), JsError> {
         self.session.put_file(0, name, bytes).map_err(describe)
+    }
+
+    /// Put every file in a `.zip` archive on drive A: (folders flattened),
+    /// then warm-boot as [`putFile`](Emulator::put_file) does. Files that can't
+    /// go on the disk are skipped and reported, not fatal; only an archive that
+    /// can't be read at all is an error.
+    #[wasm_bindgen(js_name = putZip)]
+    pub fn put_zip(&mut self, zip: &[u8]) -> Result<ZipReport, JsError> {
+        let members = unzip::members(zip).map_err(|e| JsError::new(&e))?;
+        let mut report = ZipReport::default();
+        for m in members {
+            let result = m
+                .data
+                .and_then(|data| self.session.put_file(0, &m.name, data).map_err(message));
+            match result {
+                Ok(()) => report.put.push(m.name.to_ascii_uppercase()),
+                Err(why) => report.skipped.push(format!("{}: {why}", m.name)),
+            }
+        }
+        Ok(report)
     }
 
     /// Drive A:'s whole sector image, to save in the browser or download.
@@ -153,8 +174,35 @@ impl Emulator {
     }
 }
 
+/// What [`Emulator::put_zip`] did with an archive's files.
+#[wasm_bindgen]
+#[derive(Default)]
+pub struct ZipReport {
+    put: Vec<String>,
+    skipped: Vec<String>,
+}
+
+#[wasm_bindgen]
+impl ZipReport {
+    /// The names of the files put on drive A:.
+    #[wasm_bindgen(getter)]
+    pub fn put(&self) -> Vec<String> {
+        self.put.clone()
+    }
+
+    /// One line per file left off the disk: its name and why.
+    #[wasm_bindgen(getter)]
+    pub fn skipped(&self) -> Vec<String> {
+        self.skipped.clone()
+    }
+}
+
 fn describe(e: SessionError) -> JsError {
-    JsError::new(&match e {
+    JsError::new(&message(e))
+}
+
+fn message(e: SessionError) -> String {
+    match e {
         SessionError::WorkAreaTooLarge { needed, capacity } => format!(
             "the drives need {needed} bytes of BIOS work area but only {capacity} are available"
         ),
@@ -167,5 +215,5 @@ fn describe(e: SessionError) -> JsError {
         SessionError::Disk(DiskError::BadImageSize { got, want }) => {
             format!("a {got}-byte image does not match its format ({want} bytes)")
         }
-    })
+    }
 }

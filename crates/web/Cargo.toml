@@ -25,3 +25,7 @@ wasm-bindgen = "=0.2.130"
 # Sends a Rust panic's message to the browser console instead of a bare
 # "unreachable executed".
 console_error_panic_hook = "=0.1.7"
+# Reads uploaded .zip archives. Only deflate (with the pure-Rust zlib-rs, so it
+# builds for wasm) and the legacy PKZIP 1.x methods (Shrink, Reduce, Implode),
+# which DOS-era CP/M archives still use: Zork's and MBASIC's are imploded.
+zip = { version = "=9.6.1", default-features = false, features = ["deflate-flate2", "deflate-flate2-zlib-rs", "legacy-zip"] }

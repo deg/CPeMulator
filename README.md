@@ -65,8 +65,9 @@ SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
 `ASM DUMP`, `LOAD DUMP`, `DUMP DUMP.COM`.
 
 - **Your own programs:** click **Upload…** (or drag files onto the screen) to put
-  `.COM` and data files on A:. Vintage software isn't hosted on the site, but
-  anything you have can be uploaded (unzip archives first); see
+  `.COM` and data files on A:, or a `.zip` archive, which is unpacked onto the
+  disk (old PKZIP 1.x archives too). Vintage software isn't hosted on the site,
+  but anything you have can be uploaded; see
   [Finding more software](#finding-more-software) for where to get it.
 - **Keep your work with Download disk.** It saves drive A: as a `.dsk` image,
   which the page accepts back by **Upload** and the native version mounts with

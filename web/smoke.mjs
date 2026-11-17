@@ -96,6 +96,27 @@ check("a wrong-sized image is refused", () => {
   return "accepted a 1000-byte image";
 });
 
+check("a .zip's files go on the disk, bad names reported", () => {
+  const zip = readFileSync(new URL("../crates/web/tests/fixtures/sample.zip", import.meta.url));
+  const report = emu.putZip(zip);
+  const put = report.put.join(",");
+  const skipped = report.skipped.join(",");
+  if (put !== "HELLO.COM,README.TXT") return `put ${put}`;
+  if (!skipped.startsWith("bad name.txt: ")) return `skipped ${skipped}`;
+  runToIdle(emu);
+  emu.typeBytes(new TextEncoder().encode("hello\r"));
+  const out = runToIdle(emu);
+  return out.includes("HELLO FROM A ZIP") ? null : `unexpected output ${JSON.stringify(out)}`;
+});
+check("something that isn't a zip is a JS error", () => {
+  try {
+    emu.putZip(new Uint8Array([1, 2, 3]));
+  } catch (e) {
+    return String(e).includes("not a zip archive") ? null : `wrong error: ${e}`;
+  }
+  return "accepted";
+});
+
 if (failures) {
   console.log(`${failures} failure(s)`);
   process.exit(1);

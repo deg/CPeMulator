@@ -98,6 +98,7 @@ dependency, and its tests boot CP/M, type `DIR`, upload a program and run it.
 | `files()` / `readFile(name)` | The file list, and one file's contents. |
 | `warmBoot()` | Like `^C` at the prompt. |
 | `inProgram()` | Whether a program is running (so an upload or reset would end it). |
+| `putZip(bytes)` | Put every file in a `.zip` on A: (folders flattened); returns which went on and which were skipped, and why. |
 
 It is a separate crate because the glue that `#[wasm_bindgen]` generates uses
 `unsafe`, which the `cpemu` crate forbids. `wasm-bindgen` is pinned to an exact
@@ -169,6 +170,23 @@ A fresh disk and an uploaded `.dsk` count as backed up, since the user can't los
 them. **Fresh disk** (in the file list) starts over. If storage is unavailable
 (a private window, blocked site data), the page still works and says it isn't
 saving. The chosen speed is kept in `localStorage`.
+
+### Uploading a `.zip`
+
+Most CP/M software is distributed zipped, so an uploaded or dropped `.zip` is
+unpacked straight onto A: (`crates/web/src/unzip.rs`, using the `zip` crate). Its
+folders are flattened, since a CP/M disk has none, and folder entries and macOS's
+`__MACOSX` files are dropped. A member that can't go on the disk (an unreadable or
+encrypted member, a name CP/M can't type, a full disk) is reported in the status
+line, and the rest still goes on.
+
+Many CP/M archives were zipped in the DOS era with PKZIP 1.x's methods, Shrink and
+Implode (Zork's and MBASIC's are imploded). A reader that handles only modern
+deflate rejects them, so the `zip` crate is built with its `legacy-zip` feature,
+plus deflate on the pure-Rust `zlib-rs` (which builds for wasm), and nothing else.
+That roughly doubled the `.wasm`, to about 420 KB, or 175 KB as served compressed.
+An ignored test checks the legacy methods against the archives `make setup`
+downloads, which aren't ours to commit: `cargo test -p cpemu-web -- --ignored`.
 
 ## What a fresh disk holds, and why
 
