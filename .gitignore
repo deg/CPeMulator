@@ -18,3 +18,6 @@ third-party/cpm22/*.lst
 
 # Fetched CP/M software (run scripts/fetch-software.sh)
 /software/
+
+# Browser build output (web/build.sh); GitHub Pages builds it in CI
+/web/www/pkg/

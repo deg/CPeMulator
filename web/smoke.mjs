@@ -1,0 +1,68 @@
+// Smoke test for the browser build: load the built wasm in Node, which runs the
+// same module a browser does, and boot CP/M. Native `cargo test` covers the
+// emulation; this catches what only the wasm build can get wrong, such as a std
+// call that compiles for wasm32 but panics when run (the clock, sleeping).
+//
+//   web/build.sh && node web/smoke.mjs
+//
+// Exits non-zero on any failure.
+
+import { readFileSync } from "node:fs";
+import init, { Emulator } from "./www/pkg/cpemu_web.js";
+
+const wasm = readFileSync(new URL("./www/pkg/cpemu_web_bg.wasm", import.meta.url));
+await init({ module_or_path: wasm });
+
+const FRAME = 66_667; // T-states in one 60 Hz frame at 4 MHz
+const decoder = new TextDecoder();
+let failures = 0;
+
+// Run frame-sized slices until CP/M waits for a key; return the screen text.
+function runToIdle(emu) {
+  let out = "";
+  for (let frame = 0; frame < 1000; frame++) {
+    const state = emu.run(FRAME);
+    out += decoder.decode(emu.takeOutput());
+    if (state === "idle") return out;
+    if (state !== "running") throw new Error(`machine stopped: ${state}`);
+  }
+  throw new Error(`never went idle; output so far: ${JSON.stringify(out)}`);
+}
+
+function check(name, fn) {
+  try {
+    const problem = fn();
+    if (problem) {
+      console.log(`FAIL ${name}: ${problem}`);
+      failures++;
+    } else {
+      console.log(`ok   ${name}`);
+    }
+  } catch (e) {
+    // A Rust panic traps and leaves the instance unusable.
+    console.log(`FAIL ${name}: ${e}`);
+    failures++;
+  }
+}
+
+const emu = new Emulator();
+check("boots to the A> prompt", () => {
+  const out = runToIdle(emu);
+  return out.includes("A>") ? null : `no prompt in ${JSON.stringify(out)}`;
+});
+check("runs a typed DIR", () => {
+  emu.typeBytes(new TextEncoder().encode("dir\r"));
+  const out = runToIdle(emu);
+  return out.includes("NO FILE") ? null : `unexpected output ${JSON.stringify(out)}`;
+});
+check("idle costs nothing", () => {
+  const before = emu.cycles();
+  const state = emu.run(FRAME);
+  return state === "idle" && emu.cycles() === before ? null : `state ${state}, ran ${emu.cycles() - before}`;
+});
+
+if (failures) {
+  console.log(`${failures} failure(s)`);
+  process.exit(1);
+}
+console.log("all ok");

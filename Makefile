@@ -1,6 +1,6 @@
 # cpemu — developer tasks. Mirrors what CI enforces.
 
-.PHONY: all check fmt fmt-check lint test wasm-check build clean wordstar setup fetch run play help
+.PHONY: all check fmt fmt-check lint test wasm-check build clean web web-smoke wordstar setup fetch run play help
 
 all: check
 
@@ -45,6 +45,21 @@ test:
 #   rustup target add wasm32-unknown-unknown
 wasm-check:
 	cargo check -p cpemu --lib --target wasm32-unknown-unknown
+
+# ---------------------------------------------------------------------------
+# The browser build (dev-docs/browser.md). Needs the wasm32 target and the
+# wasm-bindgen CLI at the version crates/web/Cargo.toml pins; web/build.sh says
+# how to install it if missing.
+WEB_PORT ?= 8000
+
+# Build the WebAssembly module into web/www/pkg/.
+web:
+	web/build.sh
+
+# Build, then boot the built module in Node and check it (what CI runs).
+web-smoke: web
+	node web/smoke.mjs
+# ---------------------------------------------------------------------------
 
 # Build everything.
 build:

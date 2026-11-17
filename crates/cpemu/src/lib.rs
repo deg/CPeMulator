@@ -29,6 +29,7 @@ pub mod keys;
 pub mod machine;
 pub mod memory;
 pub mod monitor;
+pub mod session;
 pub mod terminal;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod throttle;
