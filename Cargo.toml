@@ -21,7 +21,7 @@ edition = "2024"
 rust-version = "1.95"
 license = "MIT"
 authors = ["David Goldfarb <deg@degel.com>"]
-repository = ""
+repository = "https://github.com/deg/CPeMulator"
 
 # Shared dependency versions live here and are referenced from member crates
 # with `workspace = true`. Per repo convention, versions are exact — no ^, ~,

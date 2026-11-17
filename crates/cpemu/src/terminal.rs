@@ -179,7 +179,7 @@ mod tests {
         // The TVI-950 clear-page forms `;` `:` `*` all map to clear + home. The
         // game PACMAN95 (hardcoded, can't be reconfigured) redraws with `ESC ;`;
         // without translating it, output overdrew the old screen.
-        for c in [b';', b':', b'*'] {
+        for c in *b";:*" {
             assert_eq!(run(TerminalMode::Televideo, &[0x1B, c]), b"\x1b[2J\x1b[H");
         }
     }
