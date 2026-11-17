@@ -111,7 +111,9 @@ The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
 - [x] Help on the page: CP/M basics, adding software, the desktop version (`cpemu-y1b.4`)
 - [x] A fresh browser disk is 8 MB, like the desktop's (`cpemu-y1b.5`)
 - [x] A software library panel: the desktop's library as links, with its rules (`cpemu-y1b.6`)
-- [x] The library as a table, with Download/Downloaded/Installed and Download all (`cpemu-y1b.7`)
+- [x] The library as a table, with a status per program and one-click "get all" (`cpemu-y1b.7`)
+- [x] HTTPS copies of the library's archives (`cpemu-y1b.8`)
+- [x] Clearer page: controls by purpose, distinct words, panels beside the screen (`cpemu-y1b.9`)
 - [~] Build, smoke-test and deploy to GitHub Pages from CI (`cpemu-7cx`):
   workflow written; live once Pages is enabled and the branch is merged
 

@@ -10,73 +10,97 @@
 </head>
 <body>
 <main>
-  <header>
-    <h1>CPeMulator</h1>
-    <p class="sub">Genuine CP/M 2.2 on an emulated Z80, running in your browser.
-      Click the screen and type. Try <code>DIR</code>, <code>STAT</code>, or
-      <code>ASM DUMP</code>, <code>LOAD DUMP</code>, <code>DUMP DUMP.COM</code>.</p>
+  <!-- The name, and the two panels a visitor opens: software to get, and their
+       own disk. Opening one shows it as a selected tab. -->
+  <header class="top">
+    <div class="brand">
+      <h1>CPeMulator</h1>
+      <span class="tagline">genuine CP/M 2.2 in your browser</span>
+    </div>
+    <nav class="tabs" aria-label="Panels">
+      <button id="tab-software" class="tab" aria-expanded="false" aria-controls="software">Get software</button>
+      <button id="tab-disk" class="tab" aria-expanded="false" aria-controls="disk">Your disk</button>
+    </nav>
   </header>
 
-  <!-- The control panel: one row of button groups that wraps on narrow screens. -->
-  <nav class="toolbar" aria-label="Emulator controls">
-    <div class="group" role="group" aria-label="Keys">
-      <button id="k-esc" title="Send Escape">Esc</button>
-      <button id="k-ctrl" aria-pressed="false"
-              title="The next key you type is sent as a control key (Ctrl, then W sends ^W). For the keys your browser keeps for itself.">Ctrl</button>
-      <button id="k-ctrlc" title="Send ^C (at the A> prompt: warm boot)">^C</button>
-    </div>
-    <div class="group" role="group" aria-label="Disk">
-      <button id="d-upload" title="Put files from your computer on drive A: (a .zip is unpacked onto it), or replace the whole disk with a .dsk image">Upload…</button>
-      <button id="d-download" class="primary" title="Save drive A: as a .dsk file. That file is your real copy: browsers may clear what they store.">Download disk</button>
-      <button id="d-files" aria-expanded="false" aria-controls="files">Files</button>
-      <button id="d-library" aria-expanded="false" aria-controls="library"
-              title="Classic CP/M software: where to get it, and how to use it">Library</button>
-      <input id="d-input" type="file" multiple hidden>
-    </div>
-    <div class="group" role="group" aria-label="Machine">
-      <button id="m-reset" title="Restart CP/M. Drive A: keeps its files.">Reset</button>
-      <label>Speed
-        <select id="m-speed" title="Emulated CPU clock">
-          <option value="2">2 MHz</option>
-          <option value="4" selected>4 MHz</option>
-          <option value="8">8 MHz</option>
-          <option value="25">25 MHz</option>
-          <option value="max">Max</option>
-        </select>
-      </label>
-    </div>
-  </nav>
-
-  <section id="files" class="files" hidden>
-    <p class="files-head">Drive A: <span id="files-count"></span>. Click a file to download it.</p>
-    <ul id="files-list"></ul>
-    <p class="files-foot">
-      <button id="d-fresh" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk…</button>
-    </p>
+  <!-- First visit: the three steps that matter. Hidden once dismissed, or once
+       software from the library is on the disk. -->
+  <section id="welcome" class="welcome" hidden aria-label="Getting started">
+    <ol>
+      <li>Click the CP/M screen and type <code>DIR</code></li>
+      <li><button id="welcome-software" class="linkish">Get the classic software</button></li>
+      <li><button id="welcome-save" class="linkish">Save your disk</button> to keep your work</li>
+    </ol>
+    <button id="welcome-close" class="close" aria-label="Dismiss">×</button>
   </section>
 
-  <section id="library" class="library" hidden aria-labelledby="lib-title">
-    <div class="lib-head">
-      <h2 id="lib-title">Library</h2>
-      <span id="lib-counts" class="lib-counts"></span>
-      <button id="lib-all" class="primary"
-              title="Start downloading every program not yet on your disk, from the archives that preserve them">Download all ↓</button>
+  <!-- The machine, with a panel beside it on a wide screen (on a narrow one,
+       the panel covers the page instead, so it never pushes the screen down). -->
+  <div class="workspace">
+    <div class="machine">
+      <div id="term" class="term" aria-label="CP/M screen"></div>
+      <div class="strip" role="group" aria-label="Keys and machine">
+        <span class="strip-label">Keys</span>
+        <button id="k-esc" title="Send Escape">Esc</button>
+        <button id="k-ctrl" class="toggle" aria-pressed="false"
+                title="The next key you type is sent as a control key (this, then W sends Ctrl-W). For the keys your browser keeps for itself.">Ctrl + next key</button>
+        <button id="k-ctrlc" title="Send Ctrl-C (at the A> prompt it restarts CP/M, a warm boot)">Ctrl-C</button>
+        <span class="strip-gap"></span>
+        <label>Speed
+          <select id="speed" title="Emulated CPU clock">
+            <option value="2">2 MHz</option>
+            <option value="4" selected>4 MHz</option>
+            <option value="8">8 MHz</option>
+            <option value="25">25 MHz</option>
+            <option value="max">Max</option>
+          </select>
+        </label>
+        <button id="restart" title="Restart CP/M. Drive A: keeps its files.">Restart CP/M</button>
+      </div>
+      <p id="status" class="status" role="status"><span id="status-text">Loading…</span>
+        <button id="save-nudge" class="linkish" hidden>Save disk…</button></p>
     </div>
-    <p class="lib-how">Download programs, then drop the files on the screen, all at
-      once if you like. <a href="#help-adding" id="lib-help">How it works</a></p>
-    <div class="lib-scroll">
-      <table class="lib-table">
-        <thead>
-          <tr><th scope="col">Program</th><th scope="col" class="what">What it is</th>
-            <th scope="col" class="size">Size</th><th scope="col" class="status"><span class="visually-hidden">Status</span></th></tr>
-        </thead>
-        <tbody id="lib-rows"></tbody>
-      </table>
-    </div>
-  </section>
 
-  <div id="term" class="term"></div>
-  <p id="status" class="status" role="status">Loading…</p>
+    <aside id="software" class="panel" hidden aria-labelledby="software-title">
+      <div class="panel-head">
+        <h2 id="software-title">Get software</h2>
+        <button class="close" data-close aria-label="Close">×</button>
+      </div>
+      <p id="lib-counts" class="panel-sub"></p>
+      <p><button id="lib-all" class="primary"
+                 title="Download every program not yet on your disk, from the archives that preserve them">Get all</button></p>
+      <p class="panel-note">Your browser downloads them; then drop the files on this
+        page, all at once if you like. <a href="#help-adding" id="lib-help">How it works</a></p>
+      <div class="lib-scroll">
+        <table class="lib-table">
+          <thead>
+            <tr><th scope="col">Program</th><th scope="col" class="what">What it is</th>
+              <th scope="col" class="size">Size</th><th scope="col" class="status"><span class="visually-hidden">Status</span></th></tr>
+          </thead>
+          <tbody id="lib-rows"></tbody>
+        </table>
+      </div>
+    </aside>
+
+    <aside id="disk" class="panel" hidden aria-labelledby="disk-title">
+      <div class="panel-head">
+        <h2 id="disk-title">Your disk</h2>
+        <button class="close" data-close aria-label="Close">×</button>
+      </div>
+      <p id="disk-summary" class="panel-sub"></p>
+      <div class="disk-actions">
+        <button id="save-disk" class="primary" title="Save drive A: as a .dsk file on your computer. That file is your real copy: browsers may clear what they keep.">Save disk…</button>
+        <button id="add-files" title="Put programs, data files or .zip archives from your computer on drive A:">Add files…</button>
+        <button id="load-disk" title="Replace drive A: with a saved .dsk disk image">Load disk…</button>
+      </div>
+      <p id="disk-backup" class="panel-note"></p>
+      <h3 class="panel-h3">Files on A: <span>click one to save a copy</span></h3>
+      <ul id="files-list" class="files-list"></ul>
+      <p><button id="fresh-disk" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk…</button></p>
+      <input id="add-input" type="file" multiple hidden>
+      <input id="load-input" type="file" accept=".dsk" hidden>
+    </aside>
+  </div>
 
   <!-- Help: collapsible sections in the normal flow below the terminal. -->
   <section class="help" aria-label="Help">
@@ -107,44 +131,47 @@
           (a "warm boot"); <code>^S</code> pauses scrolling output and any key
           resumes it; Backspace erases. Some keys are kept by your browser
           (Ctrl-W, Ctrl-T, Ctrl-N on Windows and Linux): click
-          <strong>Ctrl</strong> above the screen, then the letter.</li>
+          <strong>Ctrl + next key</strong> under the screen, then the letter.</li>
       </ul>
     </details>
 
     <details id="help-adding">
       <summary>Adding software, and keeping your work</summary>
       <ul>
-        <li><strong>Upload…</strong>, or drag files onto the screen, to put them on
-          A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
-          included. Uploading restarts CP/M; if a program is running, the page
-          asks first.</li>
-        <li><strong>The Library</strong> has the desktop version's software: Zork,
-          Turbo Pascal, WordStar, MBASIC, dBASE II, compilers and games. To get it all:
+        <li><strong>Get software</strong> (top right) has the desktop version's
+          software: Zork, Turbo Pascal, WordStar, MBASIC, dBASE II, compilers and
+          games. To get it all:
           <ol>
-            <li>Click <strong>Library</strong>, then <strong>Download all</strong>
-              (or <strong>Download</strong> on just the programs you want). Your
-              browser may ask once whether this site may download several files.</li>
+            <li>Click <strong>Get software</strong>, then <strong>Get all</strong>
+              (or <strong>Get</strong> on just the programs you want). Your browser
+              may ask once whether this site may download several files.</li>
             <li>Open your Downloads folder, select all the new <code>.zip</code>
-              files, and drop them on the screen together.</li>
+              files, and drop them on this page together.</li>
           </ol>
           The page puts the right files from each archive on A: (leaving out
           scanned manuals and the like, as the desktop version does) and installs
-          WordStar for this screen. Each program then shows <strong>Installed</strong>,
-          and its row's name opens a note on how to use it. If a file never
-          arrives, use <strong>download again</strong>, or the program's original
-          site, listed when you open its row. The archives aren't
-          hosted here: they come from the sites that preserve them, so mind each
-          program's license. For more software, see
+          WordStar for this screen. Each program then shows <strong>On disk</strong>,
+          and its name opens a note on how to use it. If a file never arrives, use
+          <strong>get again</strong>, or the program's original site, listed when
+          you open its row. The archives aren't hosted here: they come from the
+          sites that preserve them, so mind each program's license. For more
+          software, see
           <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
           find CP/M software</a>.</li>
-        <li><strong>Download disk</strong> saves drive A: as a <code>.dsk</code>
-          file: that file is your real copy. The disk is also kept in this browser
-          between visits, but browsers clear their storage on their own (Safari
-          after a week without a visit; any browser when space runs low or history
-          is cleared). The status line says when you have changes you haven't
-          downloaded. Upload the <code>.dsk</code> to bring it back.</li>
-        <li><strong>Files</strong> lists the disk and downloads single files;
-          <strong>Fresh disk</strong> there starts over.</li>
+        <li><strong>Your own files:</strong> <strong>Add files…</strong> (in
+          <strong>Your disk</strong>), or drag files onto this page, to put them on
+          A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
+          included. Adding files restarts CP/M; if a program is running, the page
+          asks first.</li>
+        <li><strong>Save disk…</strong> (in <strong>Your disk</strong>, or the link
+          in the status line) saves drive A: as a <code>.dsk</code> file: that file
+          is your real copy. The disk is also kept in this browser between visits,
+          but browsers clear their storage on their own (Safari after a week
+          without a visit; any browser when space runs low or history is cleared).
+          The status line says when the disk has changed since your last saved
+          copy. <strong>Load disk…</strong> brings a saved <code>.dsk</code> back.</li>
+        <li><strong>Your disk</strong> also lists the files on A: (click one to save
+          a copy of it) and has <strong>Fresh disk…</strong> to start over.</li>
       </ul>
     </details>
 
@@ -158,7 +185,7 @@
           memory.</li>
         <li><strong>Real files:</strong> disks are <code>.dsk</code> files on your
           computer, written back when you quit, with nothing a browser can clear.
-          The ones this page downloads work there.</li>
+          Disks saved from this page work there.</li>
         <li><strong>More drives:</strong> up to 16, A: to P:, and
           host files loaded straight onto a disk from the command line.</li>
         <li><strong>A ready-made library:</strong> <code>make setup</code> downloads

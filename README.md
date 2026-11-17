@@ -64,24 +64,24 @@ Research's own utilities on drive A: (PIP, STAT, ED, ASM, LOAD, DDT, DUMP,
 SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
 `ASM DUMP`, `LOAD DUMP`, `DUMP DUMP.COM`.
 
-- **The software library:** **Library** lists the native version's software
+- **The software library:** **Get software** lists the native version's software
   (Zork, Turbo Pascal, WordStar, MBASIC, dBASE II, games, compilers). Click
-  **Download all** (or pick programs), then drop the downloaded files on the
-  screen together: the page puts the right files on A:, installs WordStar for
-  the screen, and marks each program **Installed**.
-- **Your own programs:** click **Upload…** (or drag files onto the screen) to put
-  `.COM` and data files on A:, or a `.zip` archive, which is unpacked onto the
+  **Get all** (or pick programs), then drop the downloaded files on the page
+  together: the page puts the right files on A:, installs WordStar for the
+  screen, and marks each program **On disk**.
+- **Your own programs:** **Your disk → Add files…** (or drag files onto the page)
+  puts `.COM` and data files on A:, or a `.zip` archive, which is unpacked onto the
   disk (old PKZIP 1.x archives too). Vintage software isn't hosted on the site,
-  but anything you have can be uploaded; see
+  but anything you have can be added; see
   [Finding more software](#finding-more-software) for where to get it.
-- **Keep your work with Download disk.** It saves drive A: as a `.dsk` image,
-  which the page accepts back by **Upload** and the native version mounts with
-  `--disk=`. The disk is also kept in your browser between visits (nothing is
-  sent anywhere), but browsers may clear their storage on their own, so the
-  download is your real copy. The status line says when you have changes not
-  yet downloaded.
+- **Keep your work with Save disk….** It saves drive A: as a `.dsk` file, which
+  **Load disk…** brings back and the native version mounts with `--disk=`. The
+  disk is also kept in your browser between visits (nothing is sent anywhere),
+  but browsers may clear their storage on their own, so the saved file is your
+  real copy. The status line says when the disk has changed since you saved it.
 - **Control keys the browser keeps for itself** (Ctrl-W, Ctrl-T, Ctrl-N on Windows
-  and Linux, which WordStar and Turbo Pascal need): click **Ctrl**, then the key.
+  and Linux, which WordStar and Turbo Pascal need): click **Ctrl + next key**
+  under the screen, then the key.
 - **Speed** sets the emulated clock: 4 MHz by default, or **Max**.
 
 The debug monitor is only in the native version for now. How the browser build
@@ -172,7 +172,7 @@ pieces are built and tested:
   (breakpoints, single-step/trace, disassembly, register/memory inspect+edit),
   reachable at any time with **Ctrl-\\**.
 - **In a web browser** — the same emulator compiled to WebAssembly, with an
-  xterm.js terminal, a control panel, uploads, and the disk saved in the browser
+  xterm.js terminal, a software library, adding files, and the disk kept in the browser
   (see [Try it in your browser](#try-it-in-your-browser)). Built and tested; the
   public site goes live with its first deploy to GitHub Pages.
 

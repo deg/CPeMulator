@@ -66,15 +66,19 @@ async function loadSavedDisk() {
 // Browsers treat this storage as disposable. Safari deletes a site's data after
 // about seven days of use without a visit; any browser may clear it when space
 // runs low, when history is cleared, or at the end of a private window. So the
-// browser copy is a convenience, and the downloaded .dsk is the user's real
-// copy. The page tracks whether the disk has changed since it was last
-// downloaded ("backed up"), keeps that flag in localStorage, and says so in the
-// status line. (localStorage, not IndexedDB, because it writes synchronously:
-// an IndexedDB write started by a click on Download is lost if the tab closes
-// or reloads a moment later. Either store being cleared alone errs safe: no
-// flag reads as "not backed up", and no image boots a fresh disk.) It also asks the browser to keep the data (persist()), which the
+// browser copy is a convenience, and a saved .dsk (Save disk) is the user's
+// real copy. The page tracks whether the disk has changed since it was last
+// saved ("backed up"), keeps that flag in localStorage, and says so in the
+// status line with a Save disk link. (localStorage, not IndexedDB, because it
+// writes synchronously: an IndexedDB write started by the Save disk click is
+// lost if the tab closes or reloads a moment later. Either store being cleared
+// alone errs safe: no flag reads as "not backed up", and no image boots a fresh
+// disk.) It also asks the browser to keep the data (persist()), which the
 // browser may refuse.
-let backedUp = true; // has drive A: been downloaded since it last changed?
+//
+// Words: the copy in this browser is "kept"; a .dsk file on the visitor's
+// computer is "saved".
+let backedUp = true; // has drive A: been saved since it last changed?
 let baseline = -1; // emu.diskChanges() when it last matched the backed-up disk
 let persisted = false;
 function storeBackedUp() {
@@ -97,6 +101,7 @@ function setBackedUp(value) {
   backedUp = value;
   storeBackedUp();
   showStatus();
+  renderOpenPanel();
 }
 // Called after every slice: the first change to a backed-up disk clears the
 // flag, and is also the moment there is something worth asking the browser to
@@ -105,6 +110,7 @@ function noteDiskChange() {
   if (!backedUp || emu.diskChanges() === baseline) return;
   backedUp = false;
   storeBackedUp();
+  renderOpenPanel();
   if (!persisted && navigator.storage?.persist) {
     navigator.storage.persist().then((ok) => {
       persisted = ok;
@@ -125,9 +131,9 @@ async function saveDisk() {
   try {
     await store("readwrite", (s) => s.put(image, "A"));
     savedChanges = changes;
-    saveState = "disk saved in this browser";
+    saveState = "disk kept in this browser";
   } catch (e) {
-    saveState = `disk NOT saved (${e?.name ?? e})`;
+    saveState = `disk NOT kept in this browser (${e?.name ?? e})`;
   }
   saving = false;
   lastSave = performance.now();
@@ -217,14 +223,16 @@ const library = await loadLibrary();
 // their rows say what to do next. Kept in memory only: the page can't see
 // whether a download arrived, or whether the file is still in the visitor's
 // Downloads folder later, so after a reload a remembered "started" would be
-// stale. ("Installed" comes from the disk itself, and does persist.)
+// stale. ("On disk" comes from the disk itself, and does persist.)
 const downloaded = new Set();
-saveState = db ? "disk saved in this browser" : "disk not saved (browser storage unavailable)";
+saveState = db ? "disk kept in this browser" : "disk not kept (this browser's storage is unavailable)";
 
-// Declared before anything can call showStatus(), which reads them.
+// Declared before anything can call showStatus() or renderOpenPanel(), which
+// read them.
 let state = "running"; // the last emu.run() result
+let openPanel = null; // "software", "disk", or null
 let speed = loadSpeed();
-const speedSelect = $("m-speed");
+const speedSelect = $("speed");
 if ([...speedSelect.options].some((o) => o.value === speed)) speedSelect.value = speed;
 else speed = speedSelect.value;
 
@@ -305,8 +313,8 @@ function frame(now) {
     maybeSave(false);
   } else {
     maybeSave(true);
-    if (!$("files").hidden) renderFiles();
-    if (!$("library").hidden) renderLibrary();
+    renderOpenPanel();
+    renderWelcome();
     runSetup();
   }
   showStatus();
@@ -317,12 +325,12 @@ function showStatus() {
   const what = {
     running: "running",
     idle: "waiting for a key",
-  }[state] ?? `stopped (${state}): press Reset`;
-  const backup = backedUp ? "" : "changed since your last Download disk";
+  }[state] ?? `stopped (${state}): use Restart CP/M`;
+  const backup = backedUp ? "" : "changed since you last saved it:";
   const parts = [statusNote, `${clock} Z80 · ${what}`, saveState, backup].filter(Boolean);
-  const el = $("status");
-  el.textContent = parts.join(" · ");
-  el.classList.toggle("error", statusError || !(state === "running" || state === "idle"));
+  $("status-text").textContent = parts.join(" · ");
+  $("save-nudge").hidden = backedUp;
+  $("status").classList.toggle("error", statusError || !(state === "running" || state === "idle"));
 }
 
 // Replace the running machine (reset, a new disk) and start it. `fresh` says
@@ -338,8 +346,7 @@ function swapEmulator(next, fresh) {
   term.reset();
   state = "running";
   wake();
-  if (!$("files").hidden) renderFiles();
-  if (!$("library").hidden) renderLibrary();
+  renderOpenPanel();
 }
 
 // ---------------------------------------------------------------------------
@@ -406,11 +413,11 @@ async function putFiles(fileList) {
   const images = files.filter((f) => /\.dsk$/i.test(f.name));
   if (images.length) {
     if (files.length > 1) {
-      note("Upload a .dsk image on its own: it replaces the whole disk.", true);
+      note("Load a .dsk disk image on its own: it replaces the whole disk.", true);
       return;
     }
     const f = images[0];
-    if (!confirm(`Replace drive A: with ${f.name}? Its current files are lost unless you download it first.`)) return;
+    if (!confirm(`Replace drive A: with ${f.name}? Its current files are lost unless you save the disk first.`)) return;
     try {
       swapEmulator(Emulator.fromImage(new Uint8Array(await f.arrayBuffer())), true);
       note(`Drive A: is now ${f.name}.`);
@@ -421,7 +428,7 @@ async function putFiles(fileList) {
   }
   // Putting files on the disk warm-boots CP/M (so it sees them), which ends a
   // running program. At the A> prompt nothing is lost; otherwise ask.
-  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Upload anyway?")) return;
+  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Add the files anyway?")) return;
   const done = [];
   const failed = [];
   const recognized = []; // library entries among the files
@@ -452,7 +459,7 @@ async function putFiles(fileList) {
     // putFile warm-boots CP/M so it sees the new files; show its fresh prompt.
     state = "running";
     wake();
-    if (!$("files").hidden) renderFiles();
+    renderOpenPanel();
   }
   const withSetup = recognized.find((e) => e.setup);
   if (withSetup) {
@@ -471,12 +478,15 @@ async function putFiles(fileList) {
   note(withSetup ? `${msg} Now ${withSetup.setup.what}…` : msg, failed.length > 0);
 }
 
-const fileInput = $("d-input");
-onClick("d-upload", () => fileInput.click());
-fileInput.addEventListener("change", () => {
-  putFiles(fileInput.files);
-  fileInput.value = "";
-});
+// Add files (programs, data, .zip archives) and Load disk (a .dsk) each have
+// their own file picker; both go through putFiles, which tells them apart.
+for (const [button, input] of [["add-files", "add-input"], ["load-disk", "load-input"]]) {
+  onClick(button, () => $(input).click());
+  $(input).addEventListener("change", () => {
+    putFiles($(input).files);
+    $(input).value = "";
+  });
+}
 
 // Files can be dropped anywhere on the page. While they're dragged over it, an
 // overlay covers the whole page, so it's clear the drop target is everywhere,
@@ -509,22 +519,32 @@ document.addEventListener("drop", (e) => {
   putFiles(e.dataTransfer.files);
 });
 
-onClick("d-download", () => {
+// Save disk: drive A: as a .dsk file on the visitor's computer, their real copy.
+// From the Your disk panel, the welcome card, and the status line's link.
+function saveCopy() {
   download(emu.diskImage(), "cpemulator-A.dsk");
   setBackedUp(true);
-  note("Downloaded drive A: as cpemulator-A.dsk. Upload it to bring it back.");
-});
+  note("Saved drive A: as cpemulator-A.dsk, in your Downloads. Load disk… brings it back.");
+}
+onClick("save-disk", saveCopy);
+onClick("save-nudge", saveCopy);
+onClick("welcome-save", saveCopy);
 
+// The Your disk panel: a summary, whether there are unsaved changes, and the
+// files (each saves a copy of itself when clicked).
 function renderFiles() {
   const names = emu.files().sort();
-  $("files-count").textContent = `${names.length} file${names.length === 1 ? "" : "s"}`;
+  $("disk-summary").textContent = `Drive A: · ${names.length} file${names.length === 1 ? "" : "s"}`;
+  $("disk-backup").textContent = backedUp
+    ? "No changes since you last saved it (or since it was fresh)."
+    : "Changed since you last saved it. Save disk… keeps your work on your computer.";
   const list = $("files-list");
   list.replaceChildren(
     ...names.map((name) => {
       const li = document.createElement("li");
       const b = document.createElement("button");
       b.textContent = name;
-      b.title = `Download ${name}`;
+      b.title = `Save a copy of ${name}`;
       b.addEventListener("click", () => {
         const bytes = emu.readFile(name);
         if (bytes) download(bytes, name);
@@ -534,16 +554,60 @@ function renderFiles() {
     }),
   );
 }
-onClick("d-files", () => {
-  const panel = $("files");
-  panel.hidden = !panel.hidden;
-  $("d-files").setAttribute("aria-expanded", String(!panel.hidden));
-  if (!panel.hidden) renderFiles();
+// ---------------------------------------------------------------------------
+// Panels: one open at a time, beside the terminal (or over the page on a
+// narrow screen). Its tab shows it as selected.
+
+const PANELS = { software: "tab-software", disk: "tab-disk" };
+function showPanel(name) {
+  openPanel = name;
+  for (const [panel, tab] of Object.entries(PANELS)) {
+    $(panel).hidden = panel !== name;
+    $(tab).setAttribute("aria-expanded", String(panel === name));
+  }
+  renderOpenPanel();
+}
+function renderOpenPanel() {
+  if (openPanel === "software") renderLibrary();
+  if (openPanel === "disk") renderFiles();
+}
+for (const [panel, tab] of Object.entries(PANELS)) {
+  onClick(tab, () => showPanel(openPanel === panel ? null : panel));
+}
+for (const close of document.querySelectorAll("[data-close]")) {
+  close.addEventListener("click", () => {
+    showPanel(null);
+    term.focus();
+  });
+}
+
+// The welcome card: on a first visit, until dismissed or until some library
+// software is on the disk.
+function welcomeDismissed() {
+  try {
+    return localStorage.getItem("cpemulator.welcome.dismissed") === "true";
+  } catch {
+    return false;
+  }
+}
+function renderWelcome() {
+  const onDisk = new Set(emu.files());
+  const hasSoftware = library.items.some((i) => onDisk.has(i.check));
+  $("welcome").hidden = welcomeDismissed() || hasSoftware;
+}
+onClick("welcome-close", () => {
+  try {
+    localStorage.setItem("cpemulator.welcome.dismissed", "true");
+  } catch {
+    // Shown again next visit; harmless.
+  }
+  renderWelcome();
 });
-// The library table: a heading row per group, then per program its name
-// (which opens a how-to row), what it is, its download size, and a status:
-// Download, then Downloaded once clicked, then Installed once its program is on
-// the disk.
+onClick("welcome-software", () => showPanel("software"));
+// The Get software table: a heading row per group, then per program its name
+// (which opens a how-to row), what it is, its download size, and a status: Get,
+// then "Drop it on this page" (with "get again") once its download has started,
+// then "On disk" once its program is on the disk.
 const openRows = new Set(); // ids whose how-to is showing
 
 function sizeText(bytes) {
@@ -601,13 +665,13 @@ function renderLibrary() {
   const toGet = notStarted.reduce((sum, i) => sum + i.size, 0);
   $("lib-counts").textContent = [
     `${library.items.length} programs`,
-    `${count} installed`,
-    started ? `${started} downloading: drop the files on the screen when they arrive` : "",
-    notStarted.length ? `${sizeText(toGet)} more to download` : "",
+    `${count} on your disk`,
+    started ? `${started} downloading: drop them on this page when they arrive` : "",
   ]
     .filter(Boolean)
     .join(" · ");
   $("lib-all").hidden = notStarted.length === 0;
+  $("lib-all").textContent = `Get all (${sizeText(toGet)})`;
 
   const rows = [];
   for (const group of [...new Set(library.items.map((i) => i.group))]) {
@@ -623,36 +687,36 @@ function renderLibrary() {
       });
       let status;
       if (installed(item)) {
-        status = el("span", { className: "installed", textContent: "Installed ✓" });
+        status = el("span", { className: "on-disk", textContent: "On disk ✓" });
       } else if (downloaded.has(item.id)) {
         // The page can't see whether the file arrived, so this says what to do
         // next rather than claiming it did, and offers to try again.
         const again = el("button", {
-          className: "again",
-          textContent: "download again",
+          className: "again linkish",
+          textContent: "get again",
           title: "If the file didn't arrive. The program's row also lists its original site.",
         });
         again.addEventListener("click", () => {
           startDownload(item);
-          note(`Downloading ${item.title} again. Then drop the file on the screen.`);
+          note(`Your browser is downloading ${item.title} again. Then drop the file on this page.`);
         });
         status = el(
           "span",
           { className: "started" },
-          el("span", { className: "hint", textContent: "Drop it on the screen" }),
+          el("span", { className: "hint", textContent: "Drop it on this page" }),
           again,
         );
       } else {
         status = el("button", {
-          className: "get primary",
-          textContent: "Download ↓",
+          className: "get",
+          textContent: "Get ↓",
           title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${new URL(item.mirror ?? item.url).hostname}`,
         });
       }
       if (status.tagName === "BUTTON") {
         status.addEventListener("click", () => {
           startDownload(item);
-          note(`Downloading ${item.title}. Then drop the file on the screen.`);
+          note(`Your browser is downloading ${item.title}. Then drop the file on this page.`);
           renderLibrary();
         });
       }
@@ -676,12 +740,6 @@ function renderLibrary() {
   $("lib-rows").replaceChildren(...rows);
 }
 
-onClick("d-library", () => {
-  const panel = $("library");
-  panel.hidden = !panel.hidden;
-  $("d-library").setAttribute("aria-expanded", String(!panel.hidden));
-  if (!panel.hidden) renderLibrary();
-});
 
 // Download every program not yet on the disk, 2 s apart: browsers treat a
 // burst of downloads as suspect (they ask once whether to allow several), and
@@ -694,9 +752,9 @@ $("lib-all").addEventListener("click", () => {
   setTimeout(renderLibrary, items.length * DOWNLOAD_GAP_MS);
   const seconds = Math.round((items.length * DOWNLOAD_GAP_MS) / 1000);
   note(
-    `Downloading ${items.length} archives over about ${seconds} seconds. Your browser may ask ` +
-      "once to allow several downloads. Then select them all in your Downloads folder and drop " +
-      "them on the screen together.",
+    `Your browser is downloading ${items.length} archives over about ${seconds} seconds; it ` +
+      "may ask once to allow several downloads. Then select them all in your Downloads folder " +
+      "and drop them on this page together.",
   );
 });
 
@@ -707,8 +765,8 @@ $("lib-help").addEventListener("click", (e) => {
   help.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-onClick("d-fresh", () => {
-  if (!confirm("Erase drive A: and start again with only the bundled programs? Download it first to keep your files.")) return;
+onClick("fresh-disk", () => {
+  if (!confirm("Erase drive A: and start again with only the bundled programs? Save the disk first to keep your files.")) return;
   swapEmulator(new Emulator(), true);
   note("Fresh disk.");
 });
@@ -716,10 +774,10 @@ onClick("d-fresh", () => {
 // ---------------------------------------------------------------------------
 // Machine
 
-onClick("m-reset", () => {
-  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Reset anyway?")) return;
+onClick("restart", () => {
+  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Restart anyway?")) return;
   swapEmulator(Emulator.fromImage(emu.diskImage()), false);
-  note("Reset: CP/M restarted; drive A: kept its files.");
+  note("CP/M restarted; drive A: kept its files.");
 });
 speedSelect.addEventListener("change", () => {
   speed = speedSelect.value;
@@ -728,5 +786,6 @@ speedSelect.addEventListener("change", () => {
   term.focus();
 });
 
+renderWelcome();
 wake();
 term.focus();
