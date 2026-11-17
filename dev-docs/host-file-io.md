@@ -1,15 +1,21 @@
 # Moving files between the host and CP/M
 
-How to get files into and out of CPeMulator, as of 2026-09-23. In short:
-CPeMulator can get files *into* CP/M. It has no built-in way to get them back
-out, and the serial/printer devices aren't connected to host files yet.
+How to get files into and out of CPeMulator, as of 2026-11-17. In short: the
+desktop version (the CLI) can get files *into* CP/M, but has no built-in way to
+get them back out. The browser version at <https://cpemulator.degel.com/> does
+both. The serial/printer devices aren't connected to host files in either.
+
+This started as the answer to a user's question; `host-file-io.docx` and
+`host-file-io.pdf` beside this file are that answer as sent on 2026-09-23, kept
+as a record. This file is the one kept current.
 
 Sources: `crates/cpemu/src/main.rs`, `crates/cpemu/src/bios.rs`,
-`crates/cpemu/src/disk.rs`.
+`crates/cpemu/src/disk.rs`, `crates/cpemu/src/session.rs`,
+`crates/web/src/lib.rs`, `web/www/main.js`.
 
 ---
 
-## 1. Importing text files
+## 1. Importing files (desktop)
 
 Any file named on the command line is copied onto drive A: before boot:
 
@@ -24,19 +30,57 @@ there works too.
 Some details:
 
 - **`^Z` end marker.** Files ending in `.TXT`, `.SUB`, `.DOC`, `.PRN` or `.ASC`
-  get a `^Z` added (`main.rs:100`). Without it, `TYPE`, `ED` and `SUBMIT` read
-  past the end of the text into garbage. Other extensions are copied byte for
-  byte, so a `.BAS` or `.C` source file gets no `^Z`.
+  get a `^Z` added (`disk::terminate_text_file`). Without it, `TYPE`, `ED` and
+  `SUBMIT` read past the end of the text into garbage. Other extensions are
+  copied byte for byte, so a `.BAS` or `.C` source file gets no `^Z`.
 - **Line endings are not converted.** CP/M text expects CR/LF, and a Unix file
   with bare LF endings goes in as-is. Some CP/M programs will handle that badly,
   so run `unix2dos` on it first to be safe.
-- **Name clash (a bug).** `add_file` doesn't check for a file that already
-  exists. Importing `FOO.TXT` onto a `--disk` image that already has one creates
-  a second directory entry with the same name instead of replacing it.
+- **Name clash (a bug in the CLI).** The CLI imports with `Disk::add_file`, which
+  doesn't check for a file that already exists. Importing `FOO.TXT` onto a
+  `--disk` image that already has one creates a second directory entry with the
+  same name instead of replacing it. (`Disk::put_file`, which the browser uses,
+  replaces it.)
+- **Names CP/M can't type are refused**: spaces, the characters the command
+  processor treats as separators or wildcards (`< > . , ; : = ? * [ ]`), and
+  anything outside printable ASCII. The CLI reports the file and skips it.
 - **Everything goes to A:, user area 0.** Other drives can't be targeted from
   the command line.
 
-## 2. Can `.dsk` files be modified from the host?
+## 2. In the browser
+
+The page's **Your disk** panel moves files both ways. See
+[browser.md](browser.md) for how it works.
+
+**In:**
+
+- **Add files**, or drop files anywhere on the page: programs, data files, or
+  `.zip` archives, which are unpacked onto A: with their folders flattened
+  (old DOS-era PKZIP archives included). The same `^Z` rule applies, a file
+  replaces one of the same name, and names CP/M can't type are refused with a
+  message. Adding files warm-boots CP/M so it sees them, and asks first if a
+  program is running, since that ends it.
+- **Get software** fetches the desktop version's software library; see
+  [browser.md](browser.md).
+- **Load disk** replaces drive A: with a `.dsk` image, of either size below.
+
+**Out:**
+
+- **Click a file** in the Your disk list to save a copy of it to your computer.
+  CP/M records a file's length only to the nearest 128-byte record, so the copy
+  is padded to a multiple of 128 bytes (a text file with `^Z`s, the way CP/M
+  wrote it).
+- **Save disk** saves all of drive A: as `cpemulator-A.dsk`.
+
+**Between the two versions:** the images are the same format. A disk saved from
+the browser (the 8 MB format) mounts in the CLI with
+`cpemu --disk=cpemulator-A.dsk`, and a CLI image loads in the browser with Load
+disk.
+
+The disk is also kept in the browser between visits, but browsers may clear
+their storage on their own, so the saved `.dsk` is the real copy.
+
+## 3. Can `.dsk` files be modified from the host?
 
 Yes. They're plain, headerless images: 128-byte sectors in order, no skew (the
 BIOS's `SECTRAN` is identity), and a standard CP/M 2.2 directory. The emulator
@@ -44,11 +88,12 @@ chooses the format from the exact file size, so **the size must never change**.
 
 | Format | Geometry | Size |
 | ------ | -------- | ---- |
-| 8 MB hard disk (default) | 64 sectors/track, 2 KB blocks, 4080 blocks, 1024 directory entries, 2 system tracks | 8,372,224 bytes (exactly 1022 tracks) |
+| 8 MB hard disk (default, and the browser's) | 64 sectors/track, 2 KB blocks, 4080 blocks, 1024 directory entries, 2 system tracks | 8,372,224 bytes (exactly 1022 tracks) |
 | `--floppy` | 26 sectors/track, 1 KB blocks, 243 blocks, 64 directory entries, 2 system tracks | 255,488 bytes |
 
-The emulator has no host-side tool for reading or writing images. The disk code
-has a `read_file` function, but only the tests use it.
+The desktop version has no host-side tool for reading or writing images. In the
+browser, the Your disk panel is one (it uses the disk code's `list_files` and
+`read_file`). Outside the emulator, try cpmtools.
 
 ### Using cpmtools (untested)
 
@@ -87,13 +132,14 @@ cpmcp -f cpemu8mb work.dsk notes.txt 0:     # copy a file in
   changes.
 
 Mapping a host directory straight to a CP/M drive is on the roadmap as epic
-`cpemu-ntn`, but deferred. It's hard with a genuine BDOS; see
-`dev-docs/roadmap.md` in the repository.
+`cpemu-ntn`, deferred until a full filesystem is needed. With a genuine BDOS it
+amounts to a miniature filesystem; see [roadmap.md](roadmap.md).
 
-## 3. Serial I/O: printer, punch, reader
+## 4. Serial I/O: printer, punch, reader
 
-Not implemented yet. The BIOS handles these devices like this
-(`bios.rs:350-391`):
+Not implemented yet, in either version. The BIOS handles these devices like this
+(the LIST, PUNCH, READER and LISTST vectors in `CpmBios`'s trap handler,
+`bios.rs`):
 
 | Device | Current behavior |
 |---|---|
