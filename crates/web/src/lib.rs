@@ -21,12 +21,12 @@
 //! `web/build.sh` builds it, `web/smoke.mjs` tests the built module in Node, and
 //! `web/www/index.html` is the page. See `dev-docs/browser.md`.
 
-use cpemu::cpm22::{BDOS, CCP};
-use cpemu::disk::Disk;
+mod bundle;
+
 use cpemu::session::{ConsoleOptions, RunState, Session, SessionError};
 use wasm_bindgen::prelude::*;
 
-/// A running CP/M machine with drive A: holding a fresh system disk.
+/// A running CP/M machine with one drive, A:.
 #[wasm_bindgen]
 pub struct Emulator {
     session: Session,
@@ -34,12 +34,13 @@ pub struct Emulator {
 
 #[wasm_bindgen]
 impl Emulator {
-    /// Cold-boot CP/M with an empty 8" floppy as drive A:. Nothing runs until
-    /// the first [`run`](Emulator::run).
+    /// Cold-boot CP/M with a fresh 8" floppy as drive A:, holding the bundled
+    /// DRI utilities (PIP, STAT, ED, ASM, ...). Nothing runs until the first
+    /// [`run`](Emulator::run).
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<Emulator, JsError> {
         console_error_panic_hook::set_once();
-        let disk = Disk::make_system_disk(CCP, BDOS);
+        let disk = bundle::default_disk();
         let session = Session::new(disk, vec![], ConsoleOptions::default()).map_err(describe)?;
         Ok(Emulator { session })
     }

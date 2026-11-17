@@ -50,10 +50,10 @@ check("boots to the A> prompt", () => {
   const out = runToIdle(emu);
   return out.includes("A>") ? null : `no prompt in ${JSON.stringify(out)}`;
 });
-check("runs a typed DIR", () => {
+check("runs a typed DIR, listing the bundled utilities", () => {
   emu.typeBytes(new TextEncoder().encode("dir\r"));
   const out = runToIdle(emu);
-  return out.includes("NO FILE") ? null : `unexpected output ${JSON.stringify(out)}`;
+  return out.includes("STAT     COM") ? null : `unexpected output ${JSON.stringify(out)}`;
 });
 check("idle costs nothing", () => {
   const before = emu.cycles();
