@@ -1,0 +1,71 @@
+# Build the browser version of CPeMulator and publish web/www to GitHub Pages:
+# https://cpemulator.degel.com/
+# The built .wasm/.js are never committed; this job builds them from source on
+# every push to main that could change them, and by hand from the Actions tab.
+#
+# One-time setup: Pages must be enabled with GitHub Actions as its source
+# (Settings > Pages > Source: GitHub Actions, or
+# `gh api -X POST repos/OWNER/REPO/pages -f build_type=workflow`), or the deploy
+# job fails. The custom domain (cpemulator.degel.com, a CNAME to deg.github.io)
+# is set in the same settings, not by a CNAME file: a workflow-built site
+# ignores one.
+name: Browser build (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "web/**"
+      - "third-party/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# The build job compiles third-party crates, so it gets read access only; the
+# deploy job alone may publish.
+permissions:
+  contents: read
+
+# Queue deploys rather than cancelling one partway through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install the wasm-bindgen CLI pinned in crates/web/Cargo.toml
+        run: |
+          version="$(sed -n 's/^wasm-bindgen = "=\(.*\)"/\1/p' crates/web/Cargo.toml)"
+          cargo install wasm-bindgen-cli --version "$version" --locked
+      - name: Build
+        run: web/build.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Smoke-test the wasm
+        run: node web/smoke.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/www
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
