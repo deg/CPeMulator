@@ -143,6 +143,28 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") maybeSave(true);
 });
 
+// The software library: the desktop's list as links (library.json). If it
+// can't be loaded, the page works without it.
+async function loadLibrary() {
+  try {
+    const r = await fetch("library.json");
+    if (r.ok) return await r.json();
+  } catch {
+    // Fall through.
+  }
+  return { exclude: [], items: [] };
+}
+
+// The library entry a dropped file is, if any: matched by the archive's file
+// name as its link downloads it, ignoring case and the " (1)" a browser adds
+// to a second copy.
+function libraryEntry(fileName) {
+  const name = fileName.toLowerCase().replace(/ \(\d+\)(?=\.zip$)/, "");
+  return library.items.find(
+    (item) => decodeURIComponent(item.url.split("/").pop()).toLowerCase() === name,
+  );
+}
+
 function loadSpeed() {
   try {
     return localStorage.getItem("cpemulator.speed") ?? "4";
@@ -172,6 +194,7 @@ term.open($("term"));
 
 await init();
 db = await openDb();
+const library = await loadLibrary();
 saveState = db ? "disk saved in this browser" : "disk not saved (browser storage unavailable)";
 
 // Declared before anything can call showStatus(), which reads them.
@@ -209,6 +232,28 @@ baseline = emu.diskChanges();
 let scheduled = false;
 let last = 0;
 
+// A library entry's setup, run after its files go on the disk: keys typed one
+// at a time, each only when CP/M is waiting for a key. (Installers like
+// WordStar's WINSTALL throw away keys typed ahead.) Then a check that it
+// worked. The visitor's own typing is held off meanwhile.
+let setup = null; // { keys: number[], entry }
+function runSetup() {
+  if (!setup || state !== "idle") return;
+  if (setup.keys.length) {
+    emu.typeBytes(new Uint8Array([setup.keys.shift()]));
+    wake();
+    return;
+  }
+  const { entry } = setup;
+  setup = null;
+  const bytes = emu.readFile(entry.setup.file);
+  const ok = bytes && new TextDecoder("latin1").decode(bytes).includes(entry.setup.contains);
+  note(
+    ok ? `${entry.title} is ready.` : `${entry.title}: ${entry.setup.what} didn't work.`,
+    !ok,
+  );
+}
+
 function wake() {
   if (scheduled || !(state === "running" || state === "idle")) return;
   scheduled = true;
@@ -237,6 +282,8 @@ function frame(now) {
   } else {
     maybeSave(true);
     if (!$("files").hidden) renderFiles();
+    if (!$("library").hidden) renderLibrary();
+    runSetup();
   }
   showStatus();
 }
@@ -263,10 +310,12 @@ function swapEmulator(next, fresh) {
   if (fresh) setBackedUp(true);
   else baseline = emu.diskChanges(); // same contents, new counter
   savedChanges = -1; // save the new machine's disk at the first chance
+  setup = null; // a half-run install belonged to the old machine
   term.reset();
   state = "running";
   wake();
   if (!$("files").hidden) renderFiles();
+  if (!$("library").hidden) renderLibrary();
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +337,10 @@ function send(bytes) {
 }
 
 term.onData((text) => {
+  if (setup) {
+    note(`Wait a moment: ${setup.entry.setup.what}.`);
+    return;
+  }
   if (ctrlArmed) {
     setCtrl(false);
     const c = text.charCodeAt(0);
@@ -347,15 +400,22 @@ async function putFiles(fileList) {
   if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Upload anyway?")) return;
   const done = [];
   const failed = [];
+  const recognized = []; // library entries among the files
   for (const f of files) {
     try {
       const bytes = new Uint8Array(await f.arrayBuffer());
       if (/\.zip$/i.test(f.name)) {
-        // Most CP/M software comes zipped: unpack it onto the disk.
-        const report = emu.putZip(bytes);
+        // Most CP/M software comes zipped: unpack it onto the disk. An archive
+        // from the library gets the desktop's rules for it; any other, all of
+        // its files.
+        const entry = libraryEntry(f.name);
+        const only = entry?.only ?? [];
+        const exclude = entry ? [...library.exclude, ...(entry.exclude ?? [])] : [];
+        const report = emu.putZip(bytes, only, exclude);
         done.push(...report.put);
         failed.push(...report.skipped.map((why) => `${f.name}, ${why}`));
         report.free();
+        if (entry) recognized.push(entry);
       } else {
         emu.putFile(f.name, bytes);
         done.push(f.name.toUpperCase());
@@ -370,16 +430,21 @@ async function putFiles(fileList) {
     wake();
     if (!$("files").hidden) renderFiles();
   }
+  const withSetup = recognized.find((e) => e.setup);
+  if (withSetup) {
+    setup = { keys: [...encoder.encode(withSetup.setup.keys)], entry: withSetup };
+  }
   // A big archive can hold dozens of files: name a few, count the rest.
   const list = (names) =>
     names.length <= 8 ? names.join(", ") : `${names.slice(0, 6).join(", ")} and ${names.length - 6} more`;
   const msg = [
+    recognized.length ? `From the library: ${recognized.map((e) => e.title).join(", ")}.` : "",
     done.length ? `Put on A: ${list(done)}.` : "",
     failed.length ? `Not put on A: ${list(failed)}.` : "",
   ]
     .filter(Boolean)
     .join(" ");
-  note(msg, failed.length > 0);
+  note(withSetup ? `${msg} Now ${withSetup.setup.what}…` : msg, failed.length > 0);
 }
 
 const fileInput = $("d-input");
@@ -431,6 +496,49 @@ onClick("d-files", () => {
   panel.hidden = !panel.hidden;
   $("d-files").setAttribute("aria-expanded", String(!panel.hidden));
   if (!panel.hidden) renderFiles();
+});
+function renderLibrary() {
+  const onDisk = new Set(emu.files());
+  const groups = [...new Set(library.items.map((i) => i.group))];
+  $("library-list").replaceChildren(
+    ...groups.flatMap((group) => {
+      const h = document.createElement("h3");
+      h.textContent = group;
+      const ul = document.createElement("ul");
+      for (const item of library.items.filter((i) => i.group === group)) {
+        const li = document.createElement("li");
+        const title = document.createElement("span");
+        title.className = "title";
+        title.textContent = item.title;
+        const link = document.createElement("a");
+        link.className = "get";
+        link.href = item.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        const file = decodeURIComponent(item.url.split("/").pop());
+        link.textContent = `${file} ↗ ${new URL(item.url).hostname.replace(/^www\./, "")}`;
+        const parts = [title, link];
+        if (onDisk.has(item.check)) {
+          const mark = document.createElement("span");
+          mark.className = "on-disk";
+          mark.textContent = "on your disk";
+          parts.push(mark);
+        }
+        const note = document.createElement("span");
+        note.className = "note";
+        note.textContent = item.note;
+        li.append(...parts, note);
+        ul.append(li);
+      }
+      return [h, ul];
+    }),
+  );
+}
+onClick("d-library", () => {
+  const panel = $("library");
+  panel.hidden = !panel.hidden;
+  $("d-library").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) renderLibrary();
 });
 onClick("d-fresh", () => {
   if (!confirm("Erase drive A: and start again with only the bundled programs? Download it first to keep your files.")) return;

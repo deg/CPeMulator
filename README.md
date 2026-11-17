@@ -64,6 +64,10 @@ Research's own utilities on drive A: (PIP, STAT, ED, ASM, LOAD, DDT, DUMP,
 SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
 `ASM DUMP`, `LOAD DUMP`, `DUMP DUMP.COM`.
 
+- **The software library:** **Library** lists the native version's software
+  (Zork, Turbo Pascal, WordStar, MBASIC, dBASE II, games, compilers) with a link
+  to each archive. Download the ones you want and drop them on the screen; the
+  page puts the right files on A: and installs WordStar for the screen.
 - **Your own programs:** click **Upload…** (or drag files onto the screen) to put
   `.COM` and data files on A:, or a `.zip` archive, which is unpacked onto the
   disk (old PKZIP 1.x archives too). Vintage software isn't hosted on the site,

@@ -29,6 +29,8 @@
       <button id="d-upload" title="Put files from your computer on drive A: (a .zip is unpacked onto it), or replace the whole disk with a .dsk image">Upload…</button>
       <button id="d-download" class="primary" title="Save drive A: as a .dsk file. That file is your real copy: browsers may clear what they store.">Download disk</button>
       <button id="d-files" aria-expanded="false" aria-controls="files">Files</button>
+      <button id="d-library" aria-expanded="false" aria-controls="library"
+              title="Classic CP/M software: where to get it, and how to use it">Library</button>
       <input id="d-input" type="file" multiple hidden>
     </div>
     <div class="group" role="group" aria-label="Machine">
@@ -51,6 +53,16 @@
     <p class="files-foot">
       <button id="d-fresh" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk…</button>
     </p>
+  </section>
+
+  <section id="library" class="files library" hidden>
+    <p class="files-head">The desktop version's software library, as links. Click
+      a program's archive to download it, then drop the <code>.zip</code> on the
+      screen (several at once is fine): the page puts the right files on A:, as
+      the desktop does. The archives stay where they are preserved; nothing here
+      is hosted, so mind each program's license. retroarchive.org has no HTTPS, so
+      your browser may ask you to confirm the download ("Keep").</p>
+    <div id="library-list"></div>
   </section>
 
   <div id="term" class="term"></div>
@@ -96,10 +108,14 @@
           A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
           included. Uploading restarts CP/M; if a program is running, the page
           asks first.</li>
-        <li>Classic CP/M software isn't hosted here, but much of it is preserved
-          online: see
+        <li><strong>Library</strong> lists the desktop version's software (Zork,
+          Turbo Pascal, WordStar, MBASIC, dBASE II, games and more), with a link to
+          each program's archive and a note on using it. Download the archives you
+          want and drop them on the screen together: the page puts the right files
+          on A:, and installs WordStar for this screen. The archives aren't hosted
+          here, so mind each program's license. For more, see
           <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
-          find CP/M software</a>. Mind each program's license.</li>
+          find CP/M software</a>.</li>
         <li><strong>Download disk</strong> saves drive A: as a <code>.dsk</code>
           file: that file is your real copy. The disk is also kept in this browser
           between visits, but browsers clear their storage on their own (Safari

@@ -74,15 +74,27 @@ impl Emulator {
         self.session.put_file(0, name, bytes).map_err(describe)
     }
 
-    /// Put every file in a `.zip` archive on drive A: (folders flattened),
-    /// then warm-boot as [`putFile`](Emulator::put_file) does. Files that can't
-    /// go on the disk are skipped and reported, not fatal; only an archive that
-    /// can't be read at all is an error.
+    /// Put the files in a `.zip` archive on drive A: (folders flattened), then
+    /// warm-boot as [`putFile`](Emulator::put_file) does. `only` and `exclude`
+    /// are an archive's rules from the software library (see
+    /// `unzip::Filter`); pass empty arrays to keep everything. Files that can't
+    /// go on the disk are reported, not fatal; only an archive that can't be
+    /// read at all is an error.
     #[wasm_bindgen(js_name = putZip)]
-    pub fn put_zip(&mut self, zip: &[u8]) -> Result<ZipReport, JsError> {
+    pub fn put_zip(
+        &mut self,
+        zip: &[u8],
+        only: Vec<String>,
+        exclude: Vec<String>,
+    ) -> Result<ZipReport, JsError> {
+        let filter = unzip::Filter { only, exclude };
         let members = unzip::members(zip).map_err(|e| JsError::new(&e))?;
         let mut report = ZipReport::default();
         for m in members {
+            if !filter.keeps(&m.path, &m.name) {
+                report.left_out += 1;
+                continue;
+            }
             let result = m
                 .data
                 .and_then(|data| self.session.put_file(0, &m.name, data).map_err(message));
@@ -180,6 +192,7 @@ impl Emulator {
 pub struct ZipReport {
     put: Vec<String>,
     skipped: Vec<String>,
+    left_out: u32,
 }
 
 #[wasm_bindgen]
@@ -190,10 +203,17 @@ impl ZipReport {
         self.put.clone()
     }
 
-    /// One line per file left off the disk: its name and why.
+    /// One line per file that couldn't go on the disk: its name and why.
     #[wasm_bindgen(getter)]
     pub fn skipped(&self) -> Vec<String> {
         self.skipped.clone()
+    }
+
+    /// How many files the archive's rules left off on purpose (manuals,
+    /// source, other builds).
+    #[wasm_bindgen(getter, js_name = leftOut)]
+    pub fn left_out(&self) -> u32 {
+        self.left_out
     }
 }
 

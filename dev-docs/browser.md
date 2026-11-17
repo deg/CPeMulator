@@ -98,7 +98,7 @@ dependency, and its tests boot CP/M, type `DIR`, upload a program and run it.
 | `files()` / `readFile(name)` | The file list, and one file's contents. |
 | `warmBoot()` | Like `^C` at the prompt. |
 | `inProgram()` | Whether a program is running (so an upload or reset would end it). |
-| `putZip(bytes)` | Put every file in a `.zip` on A: (folders flattened); returns which went on and which were skipped, and why. |
+| `putZip(bytes, only, exclude)` | Put a `.zip`'s files on A: (folders flattened), applying a library entry's rules (empty arrays keep everything); reports which went on, which couldn't and why, and how many the rules left out. |
 
 It is a separate crate because the glue that `#[wasm_bindgen]` generates uses
 `unsafe`, which the `cpemu` crate forbids. `wasm-bindgen` is pinned to an exact
@@ -191,6 +191,34 @@ plus deflate on the pure-Rust `zlib-rs` (which builds for wasm), and nothing els
 That roughly doubled the `.wasm`, to about 420 KB, or 175 KB as served compressed.
 An ignored test checks the legacy methods against the archives `make setup`
 downloads, which aren't ours to commit: `cargo test -p cpemu-web -- --ignored`.
+
+### The software library
+
+The desktop's `make setup` downloads a library of classic software; a page can't.
+retroarchive.org, which holds most of it, has no HTTPS (an HTTPS page may not fetch
+plain HTTP), and it, archive.org and bdsoft.com send no CORS headers, so a page may
+not read their files. And the site hosts only software it may redistribute
+(bead `cpemu-vg7` adds hosted entries once a program's redistribution terms are
+confirmed).
+
+So the **Library** panel lists the same programs as links, with a usage note each
+(`web/www/library.json`). The visitor downloads an archive and drops it on the
+screen; the page recognizes it by file name (ignoring a browser's " (1)") and
+applies the desktop's rules for it, so the disk ends up as `make setup` builds it:
+
+- `exclude`: the desktop's `EXTRAS` and `NOISE` lists (scanned manuals, source,
+  docs, install fragments), copied exactly, plus per-archive additions;
+- `only`: the folders to take, for archives holding more than one build (BDS C's
+  8080 build, `bdsc160/`) or extras (WordStar's program and installer folders);
+- `setup`: keys to type after unpacking, one at a time and each only when CP/M is
+  waiting for a key, then a check that it worked. WordStar's entry drives WINSTALL
+  as `make wordstar` does, so it arrives installed for the screen. The visitor's
+  typing is held off meanwhile.
+
+`web/smoke.mjs` checks that the library has every archive `fetch-software.sh`
+downloads (except DRI's utilities, already on a fresh disk) and exactly its rules.
+Dropping several archives at once works, so a visitor can build the whole library
+disk in their own browser, where it stays (and **Download disk** keeps it).
 
 ## What a fresh disk holds, and why
 

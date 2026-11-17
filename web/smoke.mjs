@@ -98,7 +98,7 @@ check("a wrong-sized image is refused", () => {
 
 check("a .zip's files go on the disk, bad names reported", () => {
   const zip = readFileSync(new URL("../crates/web/tests/fixtures/sample.zip", import.meta.url));
-  const report = emu.putZip(zip);
+  const report = emu.putZip(zip, [], []);
   const put = report.put.join(",");
   const skipped = report.skipped.join(",");
   if (put !== "HELLO.COM,README.TXT") return `put ${put}`;
@@ -110,11 +110,43 @@ check("a .zip's files go on the disk, bad names reported", () => {
 });
 check("something that isn't a zip is a JS error", () => {
   try {
-    emu.putZip(new Uint8Array([1, 2, 3]));
+    emu.putZip(new Uint8Array([1, 2, 3]), [], []);
   } catch (e) {
     return String(e).includes("not a zip archive") ? null : `wrong error: ${e}`;
   }
   return "accepted";
+});
+
+// The page's software library (web/www/library.json) repeats the desktop's
+// (scripts/fetch-software.sh) as links; keep the two in step.
+check("the web library matches the desktop's", () => {
+  const lib = JSON.parse(readFileSync(new URL("./www/library.json", import.meta.url), "utf8"));
+  const sh = readFileSync(new URL("../scripts/fetch-software.sh", import.meta.url), "utf8");
+  const base = sh.match(/^base="([^"]+)"/m)[1];
+  const desktop = new Set([
+    ...[...sh.matchAll(/^fetch "\$base\/([^"]+)"/gm)].map((m) => `${base}/${m[1]}`),
+    sh.match(/^wsurl="([^"]+)"/m)[1],
+    ...[...sh.matchAll(/"(https:\/\/www\.bdsoft\.com\/[^"]+)"/g)].map((m) => m[1]),
+  ]);
+  // DRI's own utilities are already on a fresh disk.
+  desktop.delete(`${base}/os/STDCPM22.ZIP`);
+  const web = new Set(lib.items.map((i) => i.url));
+  const missing = [...desktop].filter((u) => !web.has(u));
+  const extra = [...web].filter((u) => !desktop.has(u));
+  const rules = [
+    ...sh.match(/^EXTRAS="([^"]*)"/m)[1].replace(/\\\n/g, " ").split(/\s+/),
+    ...sh.match(/^NOISE="([^"]*)"/m)[1].split(/\s+/),
+  ].filter(Boolean);
+  const sameRules = rules.length === lib.exclude.length && rules.every((r, i) => r === lib.exclude[i]);
+  if (missing.length || extra.length) return `missing ${missing}; not in the desktop's: ${extra}`;
+  return sameRules ? null : "exclude rules differ from EXTRAS + NOISE";
+});
+check("an archive's rules leave files out", () => {
+  const zip = readFileSync(new URL("../crates/web/tests/fixtures/sample.zip", import.meta.url));
+  const report = emu.putZip(zip, ["GAME/"], ["*.txt"]);
+  const put = report.put.join(",");
+  return put === "HELLO.COM" && report.leftOut === 2 && report.skipped.length === 0
+    ? null : `put ${put}, left out ${report.leftOut}, skipped ${report.skipped}`;
 });
 
 if (failures) {

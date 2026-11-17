@@ -20,6 +20,8 @@ use zip::ZipArchive;
 
 /// One file taken out of an archive.
 pub struct Member {
+    /// Its path inside the archive, folders included.
+    pub path: String,
     /// The file's name, without any folder path.
     pub name: String,
     /// Its contents, or why it couldn't be read.
@@ -54,9 +56,45 @@ pub fn members(zip: &[u8]) -> Result<Vec<Member>, String> {
             continue;
         }
         let name = path.rsplit('/').next().unwrap_or(&path).to_string();
-        out.push(Member { name, data });
+        out.push(Member { path, name, data });
     }
     Ok(out)
+}
+
+/// Which of an archive's files belong on the disk: the rules the desktop's
+/// `scripts/fetch-software.sh` applies to each archive in its library, which
+/// the web page's software library repeats (`web/www/library.json`).
+/// Matching ignores case, as old archives mix it.
+#[derive(Default)]
+pub struct Filter {
+    /// If not empty, only files whose path contains one of these (folder names
+    /// such as `bdsc160/`) are kept. BDS C's archive, for one, holds an 8080
+    /// and a Z80 build with the same file names.
+    pub only: Vec<String>,
+    /// Files never kept: `*.EXT` patterns or exact names. Scanned manuals,
+    /// source and docs, and install-time tools you'd never run at `A>`.
+    pub exclude: Vec<String>,
+}
+
+impl Filter {
+    /// Whether the member at `path` (named `name`) belongs on the disk.
+    pub fn keeps(&self, path: &str, name: &str) -> bool {
+        let path = path.to_ascii_lowercase();
+        let name = name.to_ascii_lowercase();
+        let wanted = self.only.is_empty()
+            || self
+                .only
+                .iter()
+                .any(|o| path.contains(&o.to_ascii_lowercase()));
+        let excluded = self.exclude.iter().any(|pattern| {
+            let pattern = pattern.to_ascii_lowercase();
+            match pattern.strip_prefix('*') {
+                Some(suffix) => name.ends_with(suffix),
+                None => name == pattern,
+            }
+        });
+        wanted && !excluded
+    }
 }
 
 #[cfg(test)]
@@ -72,10 +110,29 @@ mod tests {
         let m = members(SAMPLE).unwrap();
         let names: Vec<&str> = m.iter().map(|m| m.name.as_str()).collect();
         assert_eq!(names, ["HELLO.COM", "readme.txt", "bad name.txt"]);
+        assert_eq!(m[0].path, "GAME/HELLO.COM");
         let hello = m[0].data.as_ref().unwrap();
         assert!(hello.ends_with(b"HELLO FROM A ZIP$"));
         let readme = m[1].data.as_ref().unwrap();
         assert_eq!(readme.len(), 43 * 40);
+    }
+
+    #[test]
+    fn filter_keeps_only_listed_folders_and_drops_excluded_files() {
+        let f = Filter {
+            only: vec!["bdsc160/".into()],
+            exclude: vec!["*.pdf".into(), "*.C".into(), "INSTALL.COM".into()],
+        };
+        assert!(f.keeps("bdsc160/CC.COM", "CC.COM"));
+        assert!(f.keeps("BDSC160/cc2.com", "cc2.com")); // case ignored
+        assert!(!f.keeps("bdsz20/CC.COM", "CC.COM")); // another folder
+        assert!(!f.keeps("bdsc160/guide.PDF", "guide.PDF"));
+        assert!(!f.keeps("bdsc160/stdio.c", "stdio.c"));
+        assert!(!f.keeps("bdsc160/install.com", "install.com"));
+        // An exact name doesn't match as a suffix.
+        assert!(f.keeps("bdsc160/REINSTALL.COM", "REINSTALL.COM"));
+        // No rules: everything is kept.
+        assert!(Filter::default().keeps("any/thing.pdf", "thing.pdf"));
     }
 
     #[test]
