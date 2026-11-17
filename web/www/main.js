@@ -392,7 +392,12 @@ function onClick(id, fn) {
   });
 }
 onClick("k-esc", () => send(new Uint8Array([0x1b])));
-onClick("k-ctrlc", () => send(new Uint8Array([0x03])));
+// Control keys as buttons: Ctrl-C, and the three that browsers on Windows and
+// Linux keep for themselves (close tab, new tab, new window), which WordStar
+// and Turbo Pascal need.
+for (const [id, code] of [["k-ctrlc", 0x03], ["k-ctrlw", 0x17], ["k-ctrlt", 0x14], ["k-ctrln", 0x0e]]) {
+  onClick(id, () => send(new Uint8Array([code])));
+}
 onClick("k-ctrl", () => setCtrl(!ctrlArmed));
 
 // ---------------------------------------------------------------------------
@@ -524,7 +529,7 @@ document.addEventListener("drop", (e) => {
 function saveCopy() {
   download(emu.diskImage(), "cpemulator-A.dsk");
   setBackedUp(true);
-  note("Saved drive A: as cpemulator-A.dsk, in your Downloads. Load disk… brings it back.");
+  note("Saved drive A: as cpemulator-A.dsk, in your Downloads. Load disk brings it back.");
 }
 onClick("save-disk", saveCopy);
 onClick("save-nudge", saveCopy);
@@ -537,7 +542,7 @@ function renderFiles() {
   $("disk-summary").textContent = `Drive A: · ${names.length} file${names.length === 1 ? "" : "s"}`;
   $("disk-backup").textContent = backedUp
     ? "No changes since you last saved it (or since it was fresh)."
-    : "Changed since you last saved it. Save disk… keeps your work on your computer.";
+    : "Changed since you last saved it. Save disk keeps your work on your computer.";
   const list = $("files-list");
   list.replaceChildren(
     ...names.map((name) => {
@@ -620,21 +625,94 @@ function el(tag, props = {}, ...children) {
   return e;
 }
 
+// Start one download, from a hidden frame rather than a link. A link click
+// navigates the page itself: the archive sites send .zip files as downloads, so
+// normally the page stays, but an error page instead of a .zip (a withdrawn
+// capture, say) would carry the visitor away from CPeMulator. In a frame, the
+// error page loads unseen, which is why getPrograms() also checks that the site
+// answers at all. The HTTPS copy is used when there is one: a secure page's
+// downloads from a plain-HTTP site prompt, or are blocked. The frame goes once
+// the download has long since started (removing it doesn't cancel a download
+// already handed to the browser).
 function startDownload(item) {
-  // From a hidden frame, not a link. A link click navigates the page itself:
-  // the archive sites send .zip files as downloads, so normally the page stays,
-  // but a download that fails (an error page instead of a .zip, say from a
-  // withdrawn capture) would carry the visitor away from CPeMulator. In a
-  // frame, an error page loads unseen. That also means the page can't tell a
-  // failed download from a good one, hence "download again" and the
-  // alternative source in each row. The HTTPS copy is used when there is one:
-  // a secure page's downloads from a plain-HTTP site prompt, or are blocked.
-  // The frame goes once the download has long since started (removing it
-  // doesn't cancel a download already handed to the browser).
   const frame = el("iframe", { src: item.mirror ?? item.url, hidden: true, title: "download" });
   document.body.append(frame);
   setTimeout(() => frame.remove(), 5 * 60_000);
-  downloaded.add(item.id);
+}
+
+const downloadUrl = (item) => item.mirror ?? item.url;
+const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
+
+// Whether a site answers at all. The page can't read the answer (the archive
+// sites send no CORS headers), but a request that can't get through (offline,
+// a DNS failure, the site down) rejects, and that is the failure a download
+// from a hidden frame would otherwise swallow without a trace. Returns null if
+// the site answered, else why not, as a clause naming the site. (It can't see a
+// missing file on a site that answers; the row's "get again" and its original
+// site cover that.)
+const PROBE_TIMEOUT_MS = 30_000;
+async function unreachable(url) {
+  const host = hostOf(url);
+  if (navigator.onLine === false) return "your browser is offline";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
+  try {
+    await fetch(url, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctl.signal });
+    return null;
+  } catch (e) {
+    return e.name === "AbortError"
+      ? `${host} gave no answer in ${PROBE_TIMEOUT_MS / 1000} seconds`
+      : `${host} can't be reached (are you online?)`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Get programs: start their downloads (2 s apart when there are several:
+// browsers treat a burst of downloads as suspect and ask once whether to allow
+// several, and the Wayback Machine, which serves most of them, limits request
+// rates), and meanwhile check each site once. The check runs alongside rather
+// than first, since a busy site can take seconds to answer even when all is
+// well. If a site fails it, its programs are marked as not downloaded, any of
+// their downloads still waiting are cancelled, and the status line says why.
+const DOWNLOAD_GAP_MS = 2000;
+const failed = new Map(); // program id -> why its download couldn't start
+function getPrograms(items) {
+  const waiting = new Map(); // program id -> timer of a download not yet started
+  items.forEach((item, k) => {
+    failed.delete(item.id);
+    downloaded.add(item.id);
+    waiting.set(
+      item.id,
+      setTimeout(() => {
+        waiting.delete(item.id);
+        startDownload(item);
+      }, k * DOWNLOAD_GAP_MS),
+    );
+  });
+  const hosts = new Map(); // host -> its programs among these
+  for (const item of items) {
+    const host = hostOf(downloadUrl(item));
+    hosts.set(host, [...(hosts.get(host) ?? []), item]);
+  }
+  for (const hostItems of hosts.values()) {
+    unreachable(downloadUrl(hostItems[0])).then((why) => {
+      if (!why) return;
+      for (const item of hostItems) {
+        clearTimeout(waiting.get(item.id));
+        downloaded.delete(item.id);
+        failed.set(item.id, why);
+      }
+      const names = hostItems.map((i) => i.title).join(", ");
+      note(
+        `Couldn't download ${names}: ${why}. ` +
+          "Try again in a moment; each program's row also lists its original site.",
+        true,
+      );
+      renderLibrary();
+    });
+  }
+  renderLibrary();
 }
 
 // Where a program comes from, as links: its secure copy and its original site
@@ -643,15 +721,16 @@ function sources(item) {
   const link = (url, text) => {
     const a = el("a", { href: url, target: "_blank", rel: "noopener", textContent: text });
     a.addEventListener("click", () => {
+      // A new tab shows its own errors, so no check is needed here.
+      failed.delete(item.id);
       downloaded.add(item.id);
       setTimeout(renderLibrary, 0);
     });
     return a;
   };
-  const host = (url) => new URL(url).hostname.replace(/^www\./, "");
   const parts = item.mirror
-    ? [link(item.mirror, `secure copy (${host(item.mirror)})`), " · ", link(item.url, `original (${host(item.url)})`)]
-    : [link(item.url, host(item.url))];
+    ? [link(item.mirror, `secure copy (${hostOf(item.mirror)})`), " · ", link(item.url, `original (${hostOf(item.url)})`)]
+    : [link(item.url, hostOf(item.url))];
   return el("span", { className: "sources" }, "From: ", ...parts);
 }
 
@@ -663,13 +742,14 @@ function renderLibrary() {
   const started = remaining.filter((i) => downloaded.has(i.id)).length;
   const notStarted = remaining.filter((i) => !downloaded.has(i.id));
   const toGet = notStarted.reduce((sum, i) => sum + i.size, 0);
-  $("lib-counts").textContent = [
-    `${library.items.length} programs`,
-    `${count} on your disk`,
-    started ? `${started} downloading: drop them on this page when they arrive` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  $("lib-counts").textContent = `${library.items.length} programs · ${count} on your disk`;
+  // The drop box doubles as the reminder: while downloads are in flight it is
+  // highlighted and says how many files to drop.
+  const box = $("lib-drop");
+  box.classList.toggle("waiting", started > 0);
+  box.textContent = started
+    ? `Drop the ${started} downloaded file${started === 1 ? "" : "s"} here when ${started === 1 ? "it arrives" : "they arrive"}, or click to choose ${started === 1 ? "it" : "them"}`
+    : "Drop downloaded .zip files here, or click to choose them";
   $("lib-all").hidden = notStarted.length === 0;
   $("lib-all").textContent = `Get all (${sizeText(toGet)})`;
 
@@ -688,6 +768,19 @@ function renderLibrary() {
       let status;
       if (installed(item)) {
         status = el("span", { className: "on-disk", textContent: "On disk ✓" });
+      } else if (failed.has(item.id)) {
+        // The site didn't answer: say so, and offer to try again.
+        const retry = el("button", { className: "again linkish", textContent: "try again", title: failed.get(item.id) });
+        retry.addEventListener("click", () => {
+          getPrograms([item]);
+          note(`Trying ${item.title} again. Then drop the file on this page.`);
+        });
+        status = el(
+          "span",
+          { className: "started failed", title: failed.get(item.id) },
+          el("span", { className: "hint", textContent: "Didn't download" }),
+          retry,
+        );
       } else if (downloaded.has(item.id)) {
         // The page can't see whether the file arrived, so this says what to do
         // next rather than claiming it did, and offers to try again.
@@ -697,7 +790,7 @@ function renderLibrary() {
           title: "If the file didn't arrive. The program's row also lists its original site.",
         });
         again.addEventListener("click", () => {
-          startDownload(item);
+          getPrograms([item]);
           note(`Your browser is downloading ${item.title} again. Then drop the file on this page.`);
         });
         status = el(
@@ -710,14 +803,13 @@ function renderLibrary() {
         status = el("button", {
           className: "get",
           textContent: "Get ↓",
-          title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${new URL(item.mirror ?? item.url).hostname}`,
+          title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${hostOf(downloadUrl(item))}`,
         });
       }
       if (status.tagName === "BUTTON") {
         status.addEventListener("click", () => {
-          startDownload(item);
+          getPrograms([item]);
           note(`Your browser is downloading ${item.title}. Then drop the file on this page.`);
-          renderLibrary();
         });
       }
       rows.push(
@@ -741,21 +833,27 @@ function renderLibrary() {
 }
 
 
-// Download every program not yet on the disk, 2 s apart: browsers treat a
-// burst of downloads as suspect (they ask once whether to allow several), and
-// the Wayback Machine, which serves most of them, limits request rates.
-const DOWNLOAD_GAP_MS = 2000;
+// Get all: every program not yet on the disk.
 $("lib-all").addEventListener("click", () => {
   const onDisk = new Set(emu.files());
   const items = library.items.filter((i) => !onDisk.has(i.check));
-  items.forEach((item, k) => setTimeout(() => startDownload(item), k * DOWNLOAD_GAP_MS));
-  setTimeout(renderLibrary, items.length * DOWNLOAD_GAP_MS);
+  getPrograms(items);
   const seconds = Math.round((items.length * DOWNLOAD_GAP_MS) / 1000);
   note(
     `Your browser is downloading ${items.length} archives over about ${seconds} seconds; it ` +
       "may ask once to allow several downloads. Then select them all in your Downloads folder " +
       "and drop them on this page together.",
   );
+});
+
+// The drop box opens the file picker too, for anyone who'd rather click.
+const dropBox = $("lib-drop");
+dropBox.addEventListener("click", () => $("add-input").click());
+dropBox.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    $("add-input").click();
+  }
 });
 
 $("lib-help").addEventListener("click", (e) => {

@@ -69,19 +69,19 @@ SUBMIT). Try `DIR`, `STAT`, or assemble DRI's sample program:
   **Get all** (or pick programs), then drop the downloaded files on the page
   together: the page puts the right files on A:, installs WordStar for the
   screen, and marks each program **On disk**.
-- **Your own programs:** **Your disk → Add files…** (or drag files onto the page)
+- **Your own programs:** **Your disk → Add files** (or drag files onto the page)
   puts `.COM` and data files on A:, or a `.zip` archive, which is unpacked onto the
   disk (old PKZIP 1.x archives too). Vintage software isn't hosted on the site,
   but anything you have can be added; see
   [Finding more software](#finding-more-software) for where to get it.
-- **Keep your work with Save disk….** It saves drive A: as a `.dsk` file, which
-  **Load disk…** brings back and the native version mounts with `--disk=`. The
+- **Keep your work with Save disk.** It saves drive A: as a `.dsk` file, which
+  **Load disk** brings back and the native version mounts with `--disk=`. The
   disk is also kept in your browser between visits (nothing is sent anywhere),
   but browsers may clear their storage on their own, so the saved file is your
   real copy. The status line says when the disk has changed since you saved it.
 - **Control keys the browser keeps for itself** (Ctrl-W, Ctrl-T, Ctrl-N on Windows
-  and Linux, which WordStar and Turbo Pascal need): click **Ctrl + next key**
-  under the screen, then the key.
+  and Linux, which WordStar and Turbo Pascal need): use the **Ctrl-W**,
+  **Ctrl-T** and **Ctrl-N** buttons under the screen, or **Ctrl + …** then any key.
 - **Speed** sets the emulated clock: 4 MHz by default, or **Max**.
 
 The debug monitor is only in the native version for now. How the browser build

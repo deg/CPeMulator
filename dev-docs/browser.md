@@ -147,7 +147,8 @@ action" and "panel open", and used "Download" for opposite directions. Now:
   get the classic software; save your disk), until dismissed or until library
   software is on the disk.
 - **The machine** column is the terminal, then a strip of its controls, labelled:
-  `Keys: Esc · Ctrl + next key · Ctrl-C` and `Speed · Restart CP/M`, then the
+  `Keys: Esc · Ctrl-C · Ctrl-W · Ctrl-T · Ctrl-N · Ctrl + …` and
+  `Speed · Restart CP/M` (two groups that each stay on one line), then the
   status line. The terminal sets the column's width; the strip and the status line
   use `contain: inline-size` so long text can't stretch it.
 - **A panel** opens beside the terminal on a wide window. Below about 70rem (an
@@ -156,22 +157,22 @@ action" and "panel open", and used "Download" for opposite directions. Now:
   library table inside is laid out by a container query on the panel's width: name
   and status only when narrow, all four columns when wide.
 - **One colour, one meaning:** the accent fill marks the primary action in view (Get
-  all, Save disk…). An open panel's tab shows an accent underline, and a pressed
-  toggle (Ctrl + next key) an accent edge, never the fill.
+  all, Save disk). An open panel's tab shows an accent underline, and a pressed
+  toggle (Ctrl + …) an accent edge, never the fill.
 - **Words, by direction:** software comes *in* with **Get software**, **Get all**,
-  **Get**, and the visitor's own files with **Add files…**; the disk goes *out*
-  with **Save disk…** (a `.dsk` on their computer) and comes back with **Load
-  disk…**. The copy in the browser is "kept", a file on the computer "saved". The
+  **Get**, and the visitor's own files with **Add files**; the disk goes *out*
+  with **Save disk** (a `.dsk` on their computer) and comes back with **Load
+  disk**. No button has an ellipsis. The copy in the browser is "kept", a file on the computer "saved". The
   word "Download" is used for neither, since it would mean both.
 
 ### Keys the browser keeps
 
 On Windows and Linux, browsers don't let a page see Ctrl-W, Ctrl-T or Ctrl-N (close
 tab, new tab, new window), and WordStar and Turbo Pascal use all three. (macOS uses
-Cmd for those, so Ctrl works.) The **Ctrl + next key** button is a sticky
-modifier: click it, and the next key typed is sent as its control code. It also
-gives phones, which have no Ctrl key, every control code. **Esc** and **Ctrl-C**
-are buttons too.
+Cmd for those, so Ctrl works.) So each of the three has its own button under the
+terminal, beside **Esc** and **Ctrl-C**. For any other control key, **Ctrl + …** is
+a sticky modifier: click it, and the next key typed is sent as its control code.
+That also gives phones, which have no Ctrl key, every control code.
 
 ### Saving the disk, and why the download is the real copy
 
@@ -189,12 +190,12 @@ format is detected from the image's size. On the next visit the page boots from 
 about seven days of use without a visit. Any browser may clear it when the disk
 runs low, when history is cleared, or when a private window closes. So the page:
 
-- offers **Save disk…** in three places (the Your disk panel, the welcome card,
+- offers **Save disk** in three places (the Your disk panel, the welcome card,
   and a link in the status line whenever there are unsaved changes): it saves the
-  image as a `.dsk` file, which **Load disk…** takes back and the CLI mounts
+  image as a `.dsk` file, which **Load disk** takes back and the CLI mounts
   (`cpemu --disk=cpemulator-A.dsk`);
 - remembers whether the disk has changed since it was last downloaded, and says
-  so in the status line ("changed since you last saved it: Save disk…") until it is
+  so in the status line ("changed since you last saved it: Save disk") until it is
   downloaded again. That flag is kept in `localStorage`, not IndexedDB, because
   it writes synchronously: an IndexedDB write started by the Download click is
   lost if the tab closes or reloads a moment later;
@@ -259,6 +260,26 @@ dragged over it, an overlay covers the whole page ("Drop to put the files on dri
 A:"), so the drop target is plainly everywhere rather than some small zone. On a
 phone the table drops its description and size columns so the buttons stay in view.
 
+Because "getting" a program only downloads it, which surprises people, the panel
+spells out two numbered steps (get; then drop the downloaded files on this page,
+"nothing goes on your disk until you do") above a large dashed drop box. The box
+is clickable too (it opens the Add files picker), and while downloads are in flight
+it is highlighted and says how many files to drop.
+
+**A download that can't start is reported, never silent.** A hidden frame shows
+nothing when a site can't be reached, so each Get also checks, alongside the
+download, that the site answers: a `HEAD` request with `mode: "no-cors"`, whose
+reply the page can't read but whose outright failure (offline, a DNS failure, the
+site down) it can catch. The check doesn't hold the download up, since the Wayback
+Machine can take several seconds to answer even when all is well. If it fails, the
+program's row says **Didn't download** with a **try again** link, and the status line
+says why ("your browser is offline", "bdsoft.com can't be reached", or no answer in
+30 seconds). Get all checks each site once and cancels that site's downloads still
+waiting their turn. Tested in Chrome 159 (real browser engine, headless): downloads
+from a hidden frame work, including one started 8 seconds after the click, as Get
+all's later ones are; the check took about 6 seconds on the Wayback Machine, 2 ms
+offline and 23 ms for an unknown host.
+
 A dropped archive is recognized by its file name (ignoring a browser's " (1)"),
 or failing that by its contents (`Emulator.zipPaths`): the entry's `check`
 program, plus its `only` folders if it has them, must be in the archive, and only
@@ -278,7 +299,7 @@ disk ends up as `make setup` builds it:
 `web/smoke.mjs` checks that the library has every archive `fetch-software.sh`
 downloads (except DRI's utilities, already on a fresh disk) and exactly its rules.
 Dropping several archives at once works, so a visitor can build the whole library
-disk in their own browser, where it stays (and **Save disk…** keeps a copy).
+disk in their own browser, where it stays (and **Save disk** keeps a copy).
 
 ## What a fresh disk holds, and why
 

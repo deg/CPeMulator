@@ -137,6 +137,10 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
   display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
   margin-top: .45rem;
 }
+/* The keys and the machine controls are two groups that each stay on one
+   line; when the strip is too narrow for both, the second moves down whole. */
+.strip-group { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.strip button { padding: .3rem .55rem; }
 .strip-label { font-size: .8rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin-right: .1rem; }
 .strip-gap { flex: 1 1 1rem; }
 .status { margin: .45rem 0 0; color: var(--dim); font-size: .88rem; min-height: 1.3em; }
@@ -172,7 +176,10 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
 
 /* ---- Your disk panel --------------------------------------------------- */
 
-.disk-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.disk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+/* Add files brings files in; the rest act on the whole disk. A gap keeps the
+   two kinds apart. */
+.action-gap { width: .9rem; }
 .files-list {
   display: flex; flex-wrap: wrap; gap: .3rem .5rem;
   list-style: none; margin: .3rem 0 .6rem; padding: 0;
@@ -187,6 +194,31 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
    The panel is a size container: when it is narrow (beside the terminal, or a
    phone) only the name and status columns show, and the how-to then says what
    the program is; when wide (a sheet on a tablet) all four do. */
+/* The two steps, numbered like the welcome card's. */
+.steps { list-style: none; counter-reset: step; margin: .3rem 0 .6rem; padding: 0; }
+.steps li {
+  counter-increment: step; position: relative; padding-left: 1.9rem; margin: .45rem 0;
+  font-size: .92rem;
+}
+.steps li::before {
+  content: counter(step); position: absolute; left: 0; top: .05rem;
+  display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem;
+  border-radius: 50%; background: var(--accent); color: var(--accent-fg);
+  font-size: .8rem; font-weight: 700;
+}
+.lib-help { margin-left: .6rem; font-size: .86rem; }
+/* Step 2's target: a big dashed box (the whole page takes drops; this is
+   where the eye goes). Highlighted while downloads are in flight. */
+.drop-box {
+  margin: .6rem 0 .8rem; padding: 1rem .8rem; text-align: center;
+  border: 2px dashed var(--button-border); border-radius: 8px;
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+}
+.drop-box:hover, .drop-box:focus-visible { border-color: var(--accent); color: var(--fg); outline: none; }
+.drop-box.waiting {
+  border-color: var(--accent); color: var(--fg); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .lib-scroll { overflow-x: auto; position: relative; } /* contains the hidden header label */
 .lib-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .lib-table th, .lib-table td { padding: .32rem .4rem; text-align: left; vertical-align: middle; }
@@ -220,6 +252,7 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
   display: inline-flex; flex-direction: column; align-items: center; gap: .05rem;
 }
 .lib-table .started .hint { font-size: .82rem; }
+.lib-table .failed .hint { color: var(--danger); font-weight: 600; }
 .lib-table button.again { font-size: .8rem; }
 .lib-table .sources { display: block; margin-top: .25rem; }
 .lib-table .on-disk {

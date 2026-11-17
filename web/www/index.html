@@ -40,12 +40,18 @@
     <div class="machine">
       <div id="term" class="term" aria-label="CP/M screen"></div>
       <div class="strip" role="group" aria-label="Keys and machine">
+        <span class="strip-group">
         <span class="strip-label">Keys</span>
         <button id="k-esc" title="Send Escape">Esc</button>
-        <button id="k-ctrl" class="toggle" aria-pressed="false"
-                title="The next key you type is sent as a control key (this, then W sends Ctrl-W). For the keys your browser keeps for itself.">Ctrl + next key</button>
         <button id="k-ctrlc" title="Send Ctrl-C (at the A> prompt it restarts CP/M, a warm boot)">Ctrl-C</button>
+        <button id="k-ctrlw" title="Send Ctrl-W, which browsers on Windows and Linux keep for closing the tab">Ctrl-W</button>
+        <button id="k-ctrlt" title="Send Ctrl-T, which browsers on Windows and Linux keep for a new tab">Ctrl-T</button>
+        <button id="k-ctrln" title="Send Ctrl-N, which browsers on Windows and Linux keep for a new window">Ctrl-N</button>
+        <button id="k-ctrl" class="toggle" aria-pressed="false"
+                title="Any other control key: click this, then type the key (this, then K sends Ctrl-K)">Ctrl + …</button>
+        </span>
         <span class="strip-gap"></span>
+        <span class="strip-group">
         <label>Speed
           <select id="speed" title="Emulated CPU clock">
             <option value="2">2 MHz</option>
@@ -56,9 +62,10 @@
           </select>
         </label>
         <button id="restart" title="Restart CP/M. Drive A: keeps its files.">Restart CP/M</button>
+        </span>
       </div>
       <p id="status" class="status" role="status"><span id="status-text">Loading…</span>
-        <button id="save-nudge" class="linkish" hidden>Save disk…</button></p>
+        <button id="save-nudge" class="linkish" hidden>Save disk</button></p>
     </div>
 
     <aside id="software" class="panel" hidden aria-labelledby="software-title">
@@ -67,10 +74,18 @@
         <button class="close" data-close aria-label="Close">×</button>
       </div>
       <p id="lib-counts" class="panel-sub"></p>
+      <!-- Two steps, spelled out: getting a program only downloads it; it goes
+           on the disk when its file is dropped on the page. -->
+      <ol class="steps">
+        <li><strong>Get</strong> the programs you want, or all of them. Your browser
+          downloads each one as a <code>.zip</code> file.</li>
+        <li><strong>Drop the downloaded files on this page.</strong> Nothing goes on
+          your disk until you do.</li>
+      </ol>
       <p><button id="lib-all" class="primary"
-                 title="Download every program not yet on your disk, from the archives that preserve them">Get all</button></p>
-      <p class="panel-note">Your browser downloads them; then drop the files on this
-        page, all at once if you like. <a href="#help-adding" id="lib-help">How it works</a></p>
+                 title="Download every program not yet on your disk, from the archives that preserve them">Get all</button>
+        <a href="#help-adding" id="lib-help" class="lib-help">How it works</a></p>
+      <div id="lib-drop" class="drop-box" role="button" tabindex="0"></div>
       <div class="lib-scroll">
         <table class="lib-table">
           <thead>
@@ -89,14 +104,15 @@
       </div>
       <p id="disk-summary" class="panel-sub"></p>
       <div class="disk-actions">
-        <button id="save-disk" class="primary" title="Save drive A: as a .dsk file on your computer. That file is your real copy: browsers may clear what they keep.">Save disk…</button>
-        <button id="add-files" title="Put programs, data files or .zip archives from your computer on drive A:">Add files…</button>
-        <button id="load-disk" title="Replace drive A: with a saved .dsk disk image">Load disk…</button>
+        <button id="add-files" title="Put programs, data files or .zip archives from your computer on drive A:">Add files</button>
+        <span class="action-gap"></span>
+        <button id="save-disk" class="primary" title="Save drive A: as a .dsk file on your computer. That file is your real copy: browsers may clear what they keep.">Save disk</button>
+        <button id="load-disk" title="Replace drive A: with a saved .dsk disk image">Load disk</button>
+        <button id="fresh-disk" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk</button>
       </div>
       <p id="disk-backup" class="panel-note"></p>
       <h3 class="panel-h3">Files on A: <span>click one to save a copy</span></h3>
       <ul id="files-list" class="files-list"></ul>
-      <p><button id="fresh-disk" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk…</button></p>
       <input id="add-input" type="file" multiple hidden>
       <input id="load-input" type="file" accept=".dsk" hidden>
     </aside>
@@ -131,7 +147,7 @@
           (a "warm boot"); <code>^S</code> pauses scrolling output and any key
           resumes it; Backspace erases. Some keys are kept by your browser
           (Ctrl-W, Ctrl-T, Ctrl-N on Windows and Linux): click
-          <strong>Ctrl + next key</strong> under the screen, then the letter.</li>
+          the <strong>Ctrl-W</strong>, <strong>Ctrl-T</strong> or <strong>Ctrl-N</strong> button under the screen (or <strong>Ctrl + …</strong>, then any letter).</li>
       </ul>
     </details>
 
@@ -144,34 +160,38 @@
           <ol>
             <li>Click <strong>Get software</strong>, then <strong>Get all</strong>
               (or <strong>Get</strong> on just the programs you want). Your browser
-              may ask once whether this site may download several files.</li>
+              downloads them; it may ask once whether this site may download
+              several files. Nothing is on your disk yet.</li>
             <li>Open your Downloads folder, select all the new <code>.zip</code>
-              files, and drop them on this page together.</li>
+              files, and drop them on this page together (or click the drop box in
+              <strong>Get software</strong> and choose them). This is the step that
+              puts them on your disk.</li>
           </ol>
           The page puts the right files from each archive on A: (leaving out
           scanned manuals and the like, as the desktop version does) and installs
           WordStar for this screen. Each program then shows <strong>On disk</strong>,
-          and its name opens a note on how to use it. If a file never arrives, use
-          <strong>get again</strong>, or the program's original site, listed when
-          you open its row. The archives aren't hosted here: they come from the
+          and its name opens a note on how to use it. If a site can't be reached, the
+          program's row says <strong>Didn't download</strong>; if a file just never
+          arrives, use <strong>get again</strong>, or the program's original site,
+          listed when you open its row. The archives aren't hosted here: they come from the
           sites that preserve them, so mind each program's license. For more
           software, see
           <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
           find CP/M software</a>.</li>
-        <li><strong>Your own files:</strong> <strong>Add files…</strong> (in
+        <li><strong>Your own files:</strong> <strong>Add files</strong> (in
           <strong>Your disk</strong>), or drag files onto this page, to put them on
           A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
           included. Adding files restarts CP/M; if a program is running, the page
           asks first.</li>
-        <li><strong>Save disk…</strong> (in <strong>Your disk</strong>, or the link
+        <li><strong>Save disk</strong> (in <strong>Your disk</strong>, or the link
           in the status line) saves drive A: as a <code>.dsk</code> file: that file
           is your real copy. The disk is also kept in this browser between visits,
           but browsers clear their storage on their own (Safari after a week
           without a visit; any browser when space runs low or history is cleared).
           The status line says when the disk has changed since your last saved
-          copy. <strong>Load disk…</strong> brings a saved <code>.dsk</code> back.</li>
+          copy. <strong>Load disk</strong> brings a saved <code>.dsk</code> back.</li>
         <li><strong>Your disk</strong> also lists the files on A: (click one to save
-          a copy of it) and has <strong>Fresh disk…</strong> to start over.</li>
+          a copy of it) and has <strong>Fresh disk</strong> to start over.</li>
       </ul>
     </details>
 
