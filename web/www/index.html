@@ -85,6 +85,12 @@
       <p><button id="lib-all" class="primary"
                  title="Download every program not yet on your disk, from the archives that preserve them">Get all</button>
         <a href="#help-adding" id="lib-help" class="lib-help">How it works</a></p>
+      <!-- A blocked "download multiple files?" prompt throws the downloads
+           away inside the browser, where the page can't see it; only a warning
+           helps. -->
+      <p class="panel-note warn">Your browser will ask whether this site may download
+        several files: choose <strong>Allow</strong>. If you block it, the downloads are
+        silently dropped and the page can't tell.</p>
       <div id="lib-drop" class="drop-box" role="button" tabindex="0"></div>
       <div class="lib-scroll">
         <table class="lib-table">
@@ -160,8 +166,9 @@
           <ol>
             <li>Click <strong>Get software</strong>, then <strong>Get all</strong>
               (or <strong>Get</strong> on just the programs you want). Your browser
-              downloads them; it may ask once whether this site may download
-              several files. Nothing is on your disk yet.</li>
+              downloads them. It may ask once whether this site may download
+              several files: choose <strong>Allow</strong>, since blocked downloads
+              are dropped without a word. Nothing is on your disk yet.</li>
             <li>Open your Downloads folder, select all the new <code>.zip</code>
               files, and drop them on this page together (or click the drop box in
               <strong>Get software</strong> and choose them). This is the step that

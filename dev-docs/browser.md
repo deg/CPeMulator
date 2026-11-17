@@ -266,19 +266,37 @@ spells out two numbered steps (get; then drop the downloaded files on this page,
 is clickable too (it opens the Add files picker), and while downloads are in flight
 it is highlighted and says how many files to drop.
 
-**A download that can't start is reported, never silent.** A hidden frame shows
-nothing when a site can't be reached, so each Get also checks, alongside the
-download, that the site answers: a `HEAD` request with `mode: "no-cors"`, whose
-reply the page can't read but whose outright failure (offline, a DNS failure, the
-site down) it can catch. The check doesn't hold the download up, since the Wayback
-Machine can take several seconds to answer even when all is well. If it fails, the
-program's row says **Didn't download** with a **try again** link, and the status line
-says why ("your browser is offline", "bdsoft.com can't be reached", or no answer in
-30 seconds). Get all checks each site once and cancels that site's downloads still
-waiting their turn. Tested in Chrome 159 (real browser engine, headless): downloads
-from a hidden frame work, including one started 8 seconds after the click, as Get
-all's later ones are; the check took about 6 seconds on the Wayback Machine, 2 ms
-offline and 23 ms for an unknown host.
+**A download that fails is reported, not silent.** A hidden frame shows nothing, so
+the page watches for failure two ways:
+
+- **The site refuses the file.** A file sent as a download never becomes a page in
+  the frame, so the frame fires no `load` event; a page the site sends instead (a
+  missing capture, a 404, a 429 "too many requests") loads and fires one. Tested
+  against the real Wayback Machine in Chrome 159, Firefox and WebKit (Safari's
+  engine): a good file, 0 load events; a missing capture, a 404 or a 429, 1. So a
+  `load` event marks that one program as failed, however late in a Get all it
+  happens.
+- **The site doesn't answer at all.** Alongside each Get, a `HEAD` request with
+  `mode: "no-cors"` checks the site once: the page can't read the reply, but an
+  outright failure (offline, a DNS failure, the site down) rejects. Being offline
+  fires a frame `load` only in Chrome, so this check is what catches it in Firefox
+  and Safari. It doesn't hold the download up, since the Wayback Machine can take
+  several seconds to answer even when all is well. Get all checks each site once
+  and cancels that site's downloads still waiting their turn.
+
+Either way the row says **Didn't download** with a **try again** link, and the status
+line lists every program that didn't download, grouped by reason ("your browser is
+offline", "bdsoft.com can't be reached", "web.archive.org sent a page instead of the
+file"). A specific reason from the reachability check replaces a refusal, never the
+other way round.
+
+**One failure stays invisible:** if the visitor blocks the browser's "download
+multiple files?" prompt (Chrome asks once per site; Safari has a similar question),
+the browser drops the downloads itself, the site still answers, and no page loads,
+so the page can't tell. A note beside Get all, its status message and the help all
+say to choose Allow. Chrome 159 also confirmed that downloads started from a
+hidden frame work, including one 8 seconds after the click, as Get all's later ones
+are.
 
 A dropped archive is recognized by its file name (ignoring a browser's " (1)"),
 or failing that by its contents (`Emulator.zipPaths`): the entry's `check`

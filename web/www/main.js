@@ -628,14 +628,23 @@ function el(tag, props = {}, ...children) {
 // Start one download, from a hidden frame rather than a link. A link click
 // navigates the page itself: the archive sites send .zip files as downloads, so
 // normally the page stays, but an error page instead of a .zip (a withdrawn
-// capture, say) would carry the visitor away from CPeMulator. In a frame, the
-// error page loads unseen, which is why getPrograms() also checks that the site
-// answers at all. The HTTPS copy is used when there is one: a secure page's
-// downloads from a plain-HTTP site prompt, or are blocked. The frame goes once
-// the download has long since started (removing it doesn't cancel a download
-// already handed to the browser).
-function startDownload(item) {
+// capture, say) would carry the visitor away from CPeMulator.
+//
+// The frame also tells us when the site refused. A file sent as a download
+// never becomes a page in the frame, so the frame fires no load event; a page
+// the site sends instead (a missing capture, a 404, "too many requests") does
+// load, and fires one. Tested against the real Wayback Machine in Chrome 159,
+// Firefox and WebKit (Safari's engine): a good file, 0 load events; a missing
+// capture, a 404 or a 429, 1. So a load event calls `refused`. (Being offline
+// fires one only in Chrome; getPrograms' reachability check covers that.)
+//
+// The HTTPS copy is used when there is one: a secure page's downloads from a
+// plain-HTTP site prompt, or are blocked. The frame goes once the download has
+// long since started (removing it doesn't cancel a download already handed to
+// the browser).
+function startDownload(item, refused) {
   const frame = el("iframe", { src: item.mirror ?? item.url, hidden: true, title: "download" });
+  frame.addEventListener("load", () => refused(item), { once: true });
   document.body.append(frame);
   setTimeout(() => frame.remove(), 5 * 60_000);
 }
@@ -645,11 +654,10 @@ const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 
 // Whether a site answers at all. The page can't read the answer (the archive
 // sites send no CORS headers), but a request that can't get through (offline,
-// a DNS failure, the site down) rejects, and that is the failure a download
-// from a hidden frame would otherwise swallow without a trace. Returns null if
-// the site answered, else why not, as a clause naming the site. (It can't see a
-// missing file on a site that answers; the row's "get again" and its original
-// site cover that.)
+// a DNS failure, the site down) rejects. That is the failure the frame's load
+// event misses outside Chrome. Returns null if the site answered, else why not,
+// as a clause naming the site. A site that answers but refuses the file is
+// caught per download, by startDownload's load event.
 const PROBE_TIMEOUT_MS = 30_000;
 async function unreachable(url) {
   const host = hostOf(url);
@@ -673,10 +681,40 @@ async function unreachable(url) {
 // several, and the Wayback Machine, which serves most of them, limits request
 // rates), and meanwhile check each site once. The check runs alongside rather
 // than first, since a busy site can take seconds to answer even when all is
-// well. If a site fails it, its programs are marked as not downloaded, any of
-// their downloads still waiting are cancelled, and the status line says why.
+// well. Two ways a download is marked as failed, so none fails silently:
+//  - the site doesn't answer: all its programs here, with any of their
+//    downloads still waiting cancelled;
+//  - the site answers with a page instead of the file, which each download's
+//    frame reports, however late in a Get all it happens.
+// Either way the row says "Didn't download" and the status line lists every
+// program that didn't, and why.
 const DOWNLOAD_GAP_MS = 2000;
 const failed = new Map(); // program id -> why its download couldn't start
+
+// Say what didn't download, grouped by reason, in the status line.
+function reportFailures() {
+  if (!failed.size) return;
+  const byReason = new Map();
+  for (const [id, why] of failed) {
+    const title = library.items.find((i) => i.id === id)?.title ?? id;
+    byReason.set(why, [...(byReason.get(why) ?? []), title]);
+  }
+  const parts = [...byReason].map(([why, titles]) => `Couldn't download ${titles.join(", ")}: ${why}.`);
+  note(`${parts.join(" ")} Try again in a minute; each program's row also lists its original site.`, true);
+}
+
+// A download's frame loaded a page instead: the site refused the file.
+function refused(item) {
+  if (failed.has(item.id) || !downloaded.has(item.id)) return; // already reported
+  downloaded.delete(item.id);
+  failed.set(
+    item.id,
+    `${hostOf(downloadUrl(item))} sent a page instead of the file (it may be busy, or the file gone)`,
+  );
+  reportFailures();
+  renderLibrary();
+}
+
 function getPrograms(items) {
   const waiting = new Map(); // program id -> timer of a download not yet started
   items.forEach((item, k) => {
@@ -686,7 +724,7 @@ function getPrograms(items) {
       item.id,
       setTimeout(() => {
         waiting.delete(item.id);
-        startDownload(item);
+        startDownload(item, refused);
       }, k * DOWNLOAD_GAP_MS),
     );
   });
@@ -701,14 +739,9 @@ function getPrograms(items) {
       for (const item of hostItems) {
         clearTimeout(waiting.get(item.id));
         downloaded.delete(item.id);
-        failed.set(item.id, why);
+        failed.set(item.id, why); // more specific than a refusal: replaces one
       }
-      const names = hostItems.map((i) => i.title).join(", ");
-      note(
-        `Couldn't download ${names}: ${why}. ` +
-          "Try again in a moment; each program's row also lists its original site.",
-        true,
-      );
+      reportFailures();
       renderLibrary();
     });
   }
@@ -840,9 +873,9 @@ $("lib-all").addEventListener("click", () => {
   getPrograms(items);
   const seconds = Math.round((items.length * DOWNLOAD_GAP_MS) / 1000);
   note(
-    `Your browser is downloading ${items.length} archives over about ${seconds} seconds; it ` +
-      "may ask once to allow several downloads. Then select them all in your Downloads folder " +
-      "and drop them on this page together.",
+    `Your browser is downloading ${items.length} archives over about ${seconds} seconds. If it ` +
+      "asks whether this site may download several files, choose Allow. Then select them all in " +
+      "your Downloads folder and drop them on this page together.",
   );
 });
 
