@@ -1,5 +1,5 @@
 {
- "about": "The desktop version's software library (scripts/fetch-software.sh), as links: each archive stays where it is preserved, and the page applies the same rules when a visitor drops one in. 'check' is the program that identifies the archive (and shows it installed); 'size' is the archive's download size in bytes. Keep this in step with fetch-software.sh; web/smoke.mjs checks.",
+ "about": "The desktop version's software library (scripts/fetch-software.sh), as links: each archive stays where it is preserved, and the page applies the same rules when a visitor drops one in. 'check' is the program that identifies the archive (and shows it installed); 'size' is the archive's download size in bytes. 'url' is where the desktop downloads it; 'mirror', when present, is a byte-identical HTTPS copy (checked by SHA-256 against the desktop's files) that the page downloads instead, since an HTTPS page's downloads from a plain-HTTP site prompt or get blocked. Keep this in step with fetch-software.sh; web/smoke.mjs checks.",
  "exclude": [
   "*.pdf",
   "*.jpg",
@@ -80,6 +80,7 @@
    "summary": "Infocom's text adventures",
    "size": 214286,
    "url": "http://www.retroarchive.org/cpm/games/zork123_80.zip",
+   "mirror": "https://web.archive.org/web/20250525140714id_/http://www.retroarchive.org/cpm/games/zork123_80.zip",
    "check": "ZORK1.COM",
    "note": "Infocom's text adventures: run ZORK1, ZORK2 or ZORK3. Type plain English (OPEN MAILBOX, GO NORTH); SAVE and RESTORE work; QUIT leaves."
   },
@@ -90,6 +91,7 @@
    "summary": "Colossal Cave, Enchanter, Othello and more",
    "size": 754243,
    "url": "http://www.retroarchive.org/cpm/games/manygame.zip",
+   "mirror": "https://web.archive.org/web/20250525140718id_/http://www.retroarchive.org/cpm/games/manygame.zip",
    "check": "ADVENTUR.COM",
    "note": "Colossal Cave (ADVENTUR), Infocom's Enchanter (ENCHANTE), OTHELLO, a Pac-Man chase (PACMAN95), and BASIC games such as Star Trek (MBASIC STAR.BAS, which needs MBASIC). Answer Y/N questions in capitals."
   },
@@ -100,6 +102,7 @@
    "summary": "Arcade climbing game",
    "size": 21382,
    "url": "http://www.retroarchive.org/cpm/misc/LADDER.ZIP",
+   "mirror": "https://web.archive.org/web/20250525141029id_/http://www.retroarchive.org/cpm/misc/LADDER.ZIP",
    "check": "LADDER.COM",
    "note": "Set Speed to 2 MHz first. A up, Z down, comma left, period right, Space jumps."
   },
@@ -110,6 +113,7 @@
    "summary": "A Pac-Man clone",
    "size": 16833,
    "url": "http://www.retroarchive.org/cpm/misc/CATCHUM.ZIP",
+   "mirror": "https://web.archive.org/web/20250525141028id_/http://www.retroarchive.org/cpm/misc/CATCHUM.ZIP",
    "check": "CATCHUM.COM",
    "note": "1 for one player; A/Z up and down, comma/period left and right. Try 2 MHz."
   },
@@ -120,6 +124,7 @@
    "summary": "Chess",
    "size": 8231,
    "url": "http://www.retroarchive.org/cpm/games/sargon.zip",
+   "mirror": "https://web.archive.org/web/20250525140713id_/http://www.retroarchive.org/cpm/games/sargon.zip",
    "check": "SARGON.COM",
    "note": "Run SARGON. Answer the setup questions with a capital Y or N, then enter moves like E2E4."
   },
@@ -130,6 +135,7 @@
    "summary": "A dungeon adventure",
    "size": 6250730,
    "url": "http://www.retroarchive.org/cpm/games/nemesis.zip",
+   "mirror": "https://web.archive.org/web/20250819095259id_/http://www.retroarchive.org/cpm/games/nemesis.zip",
    "check": "NEMESIS.COM",
    "note": "Run NEMESIS."
   },
@@ -140,6 +146,7 @@
    "summary": "Microsoft BASIC interpreter",
    "size": 18920,
    "url": "http://www.retroarchive.org/cpm/lang/mbasic.zip",
+   "mirror": "https://web.archive.org/web/20250525140642id_/http://www.retroarchive.org/cpm/lang/mbasic.zip",
    "check": "MBASIC.COM",
    "note": "Type numbered lines, then RUN. Ctrl-C stops a program; SYSTEM returns to A>. Also runs the BASIC games: MBASIC STAR.BAS."
   },
@@ -150,6 +157,7 @@
    "summary": "Pascal compiler and editor",
    "size": 61638,
    "url": "http://www.retroarchive.org/cpm/lang/TP_301A.ZIP",
+   "mirror": "https://web.archive.org/web/20250525140549id_/http://www.retroarchive.org/cpm/lang/TP_301A.ZIP",
    "check": "TURBO.COM",
    "note": "Run TURBO and answer N to \"include error messages\"; then the menu: Edit, Compile, Run."
   },
@@ -177,6 +185,7 @@
    "summary": "Two Lisp interpreters",
    "size": 44126,
    "url": "http://www.retroarchive.org/cpm/lang/lisp80.zip",
+   "mirror": "https://web.archive.org/web/20250525140524id_/http://www.retroarchive.org/cpm/lang/lisp80.zip",
    "check": "MULISP.COM",
    "note": "Run MULISP and type Lisp in CAPITALS at the $ prompt: (PLUS 2 3). (RDS DOCTOR LIB) loads Eliza. Ctrl-C exits."
   },
@@ -187,6 +196,7 @@
    "summary": "FORTRAN compiler",
    "size": 63871,
    "url": "http://www.retroarchive.org/cpm/lang/MSFORTRAN343.ZIP",
+   "mirror": "https://web.archive.org/web/20250525140442id_/http://www.retroarchive.org/cpm/lang/MSFORTRAN343.ZIP",
    "check": "F80.COM",
    "note": "F80 compiles a .FOR file and LINK links it into a .COM."
   },
@@ -197,6 +207,7 @@
    "summary": "Digital Research's BASIC compiler",
    "size": 108771,
    "url": "http://www.retroarchive.org/cpm/lang/CB80.ZIP",
+   "mirror": "https://web.archive.org/web/20250525140546id_/http://www.retroarchive.org/cpm/lang/CB80.ZIP",
    "check": "CB80.COM",
    "note": "CB80 compiles and LK80 links."
   },
@@ -230,6 +241,7 @@
    "summary": "Database",
    "size": 111917,
    "url": "http://www.retroarchive.org/cpm/dbase/dbaseii.zip",
+   "mirror": "https://web.archive.org/web/20250525141003id_/http://www.retroarchive.org/cpm/dbase/dbaseii.zip",
    "check": "DBASE.COM",
    "note": "Press Return at the date question; try ? \"HELLO\" at the . prompt; leave with QUIT (not Ctrl-C)."
   },
@@ -240,6 +252,7 @@
    "summary": "Spreadsheet",
    "size": 106073,
    "url": "http://www.retroarchive.org/cpm/business/MULTPLAN.ZIP",
+   "mirror": "https://web.archive.org/web/20250527134728id_/http://www.retroarchive.org/cpm/business/MULTPLAN.ZIP",
    "check": "MP.COM",
    "note": "Run MP. Its commands are the menu along the bottom; Quit from there."
   },
@@ -250,6 +263,7 @@
    "summary": "Spreadsheet",
    "size": 71664,
    "url": "http://www.retroarchive.org/cpm/business/Suprcalc.zip",
+   "mirror": "https://web.archive.org/web/20250525140707id_/http://www.retroarchive.org/cpm/business/Suprcalc.zip",
    "check": "SC.COM",
    "note": "Run SC. It isn't set up for a terminal, so it may not display correctly yet."
   }

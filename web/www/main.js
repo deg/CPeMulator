@@ -551,8 +551,9 @@ function el(tag, props = {}, ...children) {
 
 function startDownload(item) {
   // A plain link: the archive sites send .zip files as downloads, so the page
-  // stays where it is.
-  const a = el("a", { href: item.url, rel: "noopener" });
+  // stays where it is. The HTTPS copy when there is one: a secure page's
+  // downloads from a plain-HTTP site prompt, or are blocked.
+  const a = el("a", { href: item.mirror ?? item.url, rel: "noopener" });
   document.body.append(a);
   a.click();
   a.remove();
@@ -596,7 +597,7 @@ function renderLibrary() {
         status = el("button", {
           className: "get primary",
           textContent: "Download ↓",
-          title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${new URL(item.url).hostname}`,
+          title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${new URL(item.mirror ?? item.url).hostname}`,
         });
       }
       if (status.tagName === "BUTTON") {
@@ -633,17 +634,20 @@ onClick("d-library", () => {
   if (!panel.hidden) renderLibrary();
 });
 
-// Download every program not yet on the disk, a moment apart (browsers treat a
-// burst of downloads as suspect, and ask once whether to allow several).
+// Download every program not yet on the disk, 2 s apart: browsers treat a
+// burst of downloads as suspect (they ask once whether to allow several), and
+// the Wayback Machine, which serves most of them, limits request rates.
+const DOWNLOAD_GAP_MS = 2000;
 $("lib-all").addEventListener("click", () => {
   const onDisk = new Set(emu.files());
   const items = library.items.filter((i) => !onDisk.has(i.check));
-  items.forEach((item, k) => setTimeout(() => startDownload(item), k * 700));
-  setTimeout(renderLibrary, items.length * 700);
+  items.forEach((item, k) => setTimeout(() => startDownload(item), k * DOWNLOAD_GAP_MS));
+  setTimeout(renderLibrary, items.length * DOWNLOAD_GAP_MS);
+  const seconds = Math.round((items.length * DOWNLOAD_GAP_MS) / 1000);
   note(
-    `Downloading ${items.length} archives. Your browser may ask to allow several downloads, ` +
-      "and to Keep files from retroarchive.org. Then select them all in your Downloads folder " +
-      "and drop them on the screen together.",
+    `Downloading ${items.length} archives over about ${seconds} seconds. Your browser may ask ` +
+      "once to allow several downloads. Then select them all in your Downloads folder and drop " +
+      "them on the screen together.",
   );
 });
 

@@ -207,10 +207,18 @@ name (which opens a how-to), what it is, download size, and a status button that
 goes **Download** → **Downloaded** (clicked; remembered in `localStorage`, since a
 page can't see whether a cross-origin download finished) → **Installed** (the
 entry's `check` program is on the disk). **Download all** starts every remaining
-download, 0.7 s apart: the archive sites send `.zip` files as downloads, so plain
-link clicks leave the page where it is. Browsers ask once whether to allow several
-downloads, and Chrome asks to Keep each file from retroarchive.org, which has no
-HTTPS. The visitor then drops all the files on the screen together. On a phone the
+download, 2 s apart: the archive sites send `.zip` files as downloads, so plain
+link clicks leave the page where it is, and browsers ask once whether to allow
+several downloads. The visitor then drops all the files on the screen together.
+
+Downloads use HTTPS. retroarchive.org, where the desktop gets most of the library,
+has none, and a secure page's downloads from a plain-HTTP site make browsers ask
+the visitor to Keep each file, or block it. So each of those entries also has a
+`mirror`: the Wayback Machine's capture of the same URL (`…/web/<time>id_/<url>`,
+which returns the original bytes), each checked byte-identical by SHA-256 against
+the desktop's downloads when it was added. The Wayback Machine limits request
+rates, which is one reason for the 2 s gap. The smoke test checks that each mirror
+is a capture of its entry's own URL and that every download is HTTPS. On a phone the
 table drops its description and size columns so the buttons stay in view.
 
 A dropped archive is recognized by its file name (ignoring a browser's " (1)"),

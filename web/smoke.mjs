@@ -139,6 +139,13 @@ check("the web library matches the desktop's", () => {
   ].filter(Boolean);
   const sameRules = rules.length === lib.exclude.length && rules.every((r, i) => r === lib.exclude[i]);
   if (missing.length || extra.length) return `missing ${missing}; not in the desktop's: ${extra}`;
+  // A mirror is a Wayback Machine capture of the entry's own URL, over HTTPS.
+  const badMirror = lib.items.filter(
+    (i) => i.mirror && !(i.mirror.startsWith("https://web.archive.org/web/") && i.mirror.endsWith(`id_/${i.url}`)),
+  );
+  if (badMirror.length) return `mirrors not matching their URL: ${badMirror.map((i) => i.id)}`;
+  const insecure = lib.items.filter((i) => !(i.mirror ?? i.url).startsWith("https://"));
+  if (insecure.length) return `downloaded over plain HTTP: ${insecure.map((i) => i.id)}`;
   return sameRules ? null : "exclude rules differ from EXTRAS + NOISE";
 });
 check("zipPaths lists an archive's files without unpacking it", () => {
