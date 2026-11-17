@@ -15,12 +15,21 @@
 
 pub mod bios;
 pub mod config;
+// The host-terminal console and the speed throttle are native-only: the console
+// needs crossterm (raw mode) and a reader thread, and the throttle needs
+// `std::time::Instant` and `thread::sleep`, which panic on wasm32. The browser
+// front end has its own console and paces itself per animation frame.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod console;
+pub mod cpm22;
 pub mod debugger;
 pub mod disk;
 pub mod executor;
+pub mod keys;
 pub mod machine;
 pub mod memory;
 pub mod monitor;
+pub mod session;
 pub mod terminal;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod throttle;

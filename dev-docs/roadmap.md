@@ -97,6 +97,30 @@ hidden cost. See
 Boot CP/M to the `A>` prompt, then run real software (MBASIC, Turbo Pascal, Zork,
 WordStar) as acceptance tests.
 
+### [~] Boot CP/M in the browser — `cpemu-y1b`
+The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
+[browser.md](browser.md).
+- [x] Keep native-only code out of the wasm build (`cpemu-o3h`)
+- [x] A run loop that never blocks (`Session`) and the wasm-bindgen wrapper (`cpemu-659`)
+- [x] xterm.js page that boots straight to `A>` (`cpemu-zsv`)
+- [x] Control panel: sticky Ctrl, Esc, ^C, reset, speed (`cpemu-y1b.1`)
+- [x] Disk saved in the browser; upload and download of files and `.dsk` images (`cpemu-qa2`)
+- [x] DRI's CP/M 2.2 utilities on a fresh disk, with provenance (`cpemu-kb9`)
+- [x] Ask before an upload or reset ends a running program (`cpemu-y1b.2`)
+- [x] Upload a `.zip`, including DOS-era PKZIP 1.x archives (`cpemu-y1b.3`)
+- [x] Help on the page: CP/M basics, adding software, the desktop version (`cpemu-y1b.4`)
+- [x] A fresh browser disk is 8 MB, like the desktop's (`cpemu-y1b.5`)
+- [x] A software library panel: the desktop's library as links, with its rules (`cpemu-y1b.6`)
+- [x] The library as a table, with a status per program and one-click "get all" (`cpemu-y1b.7`)
+- [x] HTTPS copies of the library's archives (`cpemu-y1b.8`)
+- [x] Clearer page: controls by purpose, distinct words, panels beside the screen (`cpemu-y1b.9`)
+- [x] A download that can't start says so, instead of failing silently (`cpemu-y1b.10`)
+- [~] Build, smoke-test and deploy to GitHub Pages from CI (`cpemu-7cx`):
+  workflow written; live once Pages is enabled and the branch is merged
+
+Next, in Phase 2 (`cpemu-81c`): a browser debugger, a software launcher, deep
+links, an embeddable widget.
+
 ## Deferred decisions
 
 Decisions we consciously postponed rather than guessed at. Each is recorded on

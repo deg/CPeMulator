@@ -1,0 +1,301 @@
+/* CPeMulator web page.
+
+   Layout: a header (name, and two tabs that open panels), an optional welcome
+   card, then the "workspace": the machine (the fixed 80x24 terminal, its key
+   and machine strip, the status line) with the open panel beside it. When the
+   window is too narrow for both side by side, the panel covers the page as a
+   sheet instead, so opening one never pushes the screen down. Flexbox only.
+
+   One colour, one meaning: the accent fill marks the primary action in view.
+   An open panel's tab and a pressed toggle are shown by an accent edge, never
+   by the same fill. */
+
+:root {
+  --bg: #f4f3ef;
+  --fg: #1d1d1b;
+  --dim: #5f5e5a;
+  --panel: #e7e5df;
+  --button: #ffffff;
+  --button-border: #b9b6ad;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --danger: #a33a2a;
+  --screen: #000000;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1a;
+    --fg: #e8e6e1;
+    --dim: #a19f98;
+    --panel: #262624;
+    --button: #33322f;
+    --button-border: #4a4945;
+    --accent: #5fb38a;
+    --accent-fg: #10140f;
+    --danger: #e0806f;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Elements given a display below (flex and so on) must still hide. */
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 76rem; margin: 0 auto; padding: 1rem 16px 2rem; }
+h1 { font-size: 1.35rem; margin: 0; }
+h2 { font-size: 1.05rem; margin: 0; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+a { color: var(--accent); }
+
+button, select {
+  font: inherit;
+  font-size: .9rem;
+  color: var(--fg);
+  background: var(--button);
+  border: 1px solid var(--button-border);
+  border-radius: 5px;
+  padding: .3rem .7rem;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button.danger { color: var(--danger); }
+/* A button that reads as a link, for actions inside a sentence. */
+button.linkish {
+  background: none; border: none; padding: 0; font-size: inherit;
+  color: var(--accent); text-decoration: underline; cursor: pointer;
+}
+button.close {
+  background: none; border: none; padding: 0 .3rem; font-size: 1.4rem; line-height: 1;
+  color: var(--dim);
+}
+button.close:hover { color: var(--fg); }
+/* A pressed toggle (Ctrl + next key): an accent edge, not the action fill. */
+button.toggle[aria-pressed="true"] {
+  border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color: var(--dim); }
+
+/* ---- Header ---------------------------------------------------------- */
+
+.top {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: .5rem 1rem; margin-bottom: .8rem;
+}
+.brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem; }
+.tagline { color: var(--dim); }
+.tabs { display: flex; gap: .3rem; }
+.tab { font-weight: 500; }
+/* An open panel's tab: an accent underline and the panel's colour. */
+.tab[aria-expanded="true"] {
+  background: var(--panel); border-color: var(--button-border);
+  box-shadow: inset 0 -3px 0 var(--accent); font-weight: 600;
+}
+
+/* ---- Welcome card ------------------------------------------------------ */
+
+.welcome {
+  display: flex; align-items: flex-start; gap: 1rem;
+  background: var(--panel); border-left: 4px solid var(--accent); border-radius: 6px;
+  padding: .6rem .7rem .6rem 1rem; margin-bottom: .8rem;
+}
+.welcome ol {
+  flex: 1; display: flex; flex-wrap: wrap; gap: .4rem 2rem;
+  margin: 0; padding: 0; list-style: none; counter-reset: step;
+}
+.welcome li { counter-increment: step; display: flex; align-items: baseline; gap: .45rem; }
+.welcome li::before {
+  content: counter(step);
+  display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem;
+  border-radius: 50%; background: var(--accent); color: var(--accent-fg);
+  font-size: .8rem; font-weight: 700;
+}
+
+/* ---- The workspace: machine, and a panel beside it ---------------------- */
+
+.workspace { display: flex; align-items: flex-start; gap: 1rem; }
+.machine { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+/* The terminal sets the machine column's width. The strip and the status line
+   take whatever width that is, and don't stretch it: a long status message
+   would otherwise widen the column, and the terminal's black box with it. */
+.strip, .status { contain: inline-size; }
+.term {
+  background: var(--screen);
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+}
+.strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  margin-top: .45rem;
+}
+/* The keys and the machine controls are two groups that each stay on one
+   line; when the strip is too narrow for both, the second moves down whole. */
+.strip-group { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.strip button { padding: .3rem .55rem; }
+.strip-label { font-size: .8rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin-right: .1rem; }
+.strip-gap { flex: 1 1 1rem; }
+.status { margin: .45rem 0 0; color: var(--dim); font-size: .88rem; min-height: 1.3em; }
+.status.error { color: var(--danger); }
+.status .linkish { margin-left: .3rem; }
+
+.panel {
+  flex: 1 1 21rem; min-width: 19rem; max-width: 30rem;
+  background: var(--panel); border-radius: 8px; padding: 0 .9rem .8rem;
+  position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto;
+  container-type: inline-size;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 1; background: var(--panel);
+  padding: .7rem 0 .4rem;
+}
+.panel-sub { margin: 0 0 .5rem; color: var(--dim); font-size: .88rem; }
+.panel-note { margin: .4rem 0 .6rem; color: var(--dim); font-size: .86rem; }
+.panel p { margin-top: .4rem; margin-bottom: .4rem; }
+.panel-h3 { font-size: .9rem; margin: .9rem 0 .3rem; }
+.panel-h3 span { font-weight: 400; color: var(--dim); font-size: .82rem; margin-left: .3rem; }
+
+/* Too narrow for the panel beside the terminal (an 80-column screen plus a
+   panel need about 70rem): the panel covers the page as a sheet instead. */
+@media (max-width: 70rem) {
+  .panel {
+    position: fixed; inset: 0; z-index: 5;
+    max-width: none; min-width: 0; max-height: none; border-radius: 0;
+    padding: 0 16px 1.5rem;
+  }
+}
+
+/* ---- Your disk panel --------------------------------------------------- */
+
+.disk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+/* Add files brings files in; the rest act on the whole disk. A gap keeps the
+   two kinds apart. */
+.action-gap { width: .9rem; }
+.files-list {
+  display: flex; flex-wrap: wrap; gap: .3rem .5rem;
+  list-style: none; margin: .3rem 0 .6rem; padding: 0;
+}
+.files-list button {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: .82rem; padding: .12rem .4rem;
+}
+
+/* ---- Get software panel: a table ------------------------------------------
+   One row per program under group headings, a hidden how-to row under each.
+   The panel is a size container: when it is narrow (beside the terminal, or a
+   phone) only the name and status columns show, and the how-to then says what
+   the program is; when wide (a sheet on a tablet) all four do. */
+/* The two steps, numbered like the welcome card's. */
+.steps { list-style: none; counter-reset: step; margin: .3rem 0 .6rem; padding: 0; }
+.steps li {
+  counter-increment: step; position: relative; padding-left: 1.9rem; margin: .45rem 0;
+  font-size: .92rem;
+}
+.steps li::before {
+  content: counter(step); position: absolute; left: 0; top: .05rem;
+  display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem;
+  border-radius: 50%; background: var(--accent); color: var(--accent-fg);
+  font-size: .8rem; font-weight: 700;
+}
+.lib-help { margin-left: .6rem; font-size: .86rem; }
+.panel-note.warn { color: var(--fg); }
+/* Step 2's target: a big dashed box (the whole page takes drops; this is
+   where the eye goes). Highlighted while downloads are in flight. */
+.drop-box {
+  margin: .6rem 0 .8rem; padding: 1rem .8rem; text-align: center;
+  border: 2px dashed var(--button-border); border-radius: 8px;
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+}
+.drop-box:hover, .drop-box:focus-visible { border-color: var(--accent); color: var(--fg); outline: none; }
+.drop-box.waiting {
+  border-color: var(--accent); color: var(--fg); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.lib-scroll { overflow-x: auto; position: relative; } /* contains the hidden header label */
+.lib-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.lib-table th, .lib-table td { padding: .32rem .4rem; text-align: left; vertical-align: middle; }
+.lib-table thead th {
+  font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--dim); border-bottom: 1px solid var(--button-border);
+}
+.lib-table tr.group th {
+  padding-top: .85rem; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.lib-table tr.item td { border-top: 1px solid var(--button-border); }
+.lib-table tr.group + tr.item td { border-top: none; }
+.lib-table .size {
+  text-align: right; white-space: nowrap; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.lib-table .status { text-align: right; white-space: nowrap; width: 1%; }
+.lib-table .what { color: var(--dim); }
+.lib-table button.expand {
+  background: none; border: none; padding: 0; font-weight: 600; color: var(--fg);
+  text-align: left;
+}
+.lib-table button.expand::before {
+  content: "▸"; display: inline-block; width: 1.1em; color: var(--dim);
+}
+.lib-table button.expand[aria-expanded="true"]::before { content: "▾"; }
+.lib-table tr.howto td { color: var(--dim); font-size: .86rem; padding: 0 .4rem .6rem 1.5rem; }
+.lib-table .get, .lib-table .on-disk, .lib-table .started { min-width: 6.5rem; }
+.lib-table .started {
+  display: inline-flex; flex-direction: column; align-items: center; gap: .05rem;
+}
+.lib-table .started .hint { font-size: .82rem; }
+.lib-table .failed .hint { color: var(--danger); font-weight: 600; }
+.lib-table button.again { font-size: .8rem; }
+.lib-table .sources { display: block; margin-top: .25rem; }
+.lib-table .on-disk {
+  display: inline-block; text-align: center; font-weight: 600; color: var(--accent);
+  padding: .3rem .4rem;
+}
+.lib-table .what, .lib-table .size { display: none; }
+@container (min-width: 34rem) {
+  .lib-table .what, .lib-table .size { display: table-cell; }
+  .lib-table .howto-what { display: none; }
+  .lib-table button.expand { white-space: nowrap; }
+}
+
+/* ---- Help and footer ---------------------------------------------------- */
+
+.help { margin-top: 1.6rem; }
+.help details { border-top: 1px solid var(--button-border); padding: .55rem 0; }
+.help details:last-child { border-bottom: 1px solid var(--button-border); }
+.help summary { cursor: pointer; font-weight: 600; }
+.help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.help p, .help ul { margin: .55rem 0; max-width: 46rem; }
+.help ul { padding-left: 1.2rem; }
+.help ol { margin: .4rem 0; padding-left: 1.3rem; }
+.help li { margin: .3rem 0; }
+footer { margin-top: 1.2rem; color: var(--dim); font-size: .88rem; }
+footer p { margin: .4rem 0; }
+
+/* ---- Odds and ends ------------------------------------------------------ */
+
+/* Shown while files are dragged over the page: the whole page is the target. */
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border: 4px dashed var(--accent);
+  pointer-events: none;
+}
+.drop-overlay p {
+  margin: 0; padding: 1rem 1.6rem; border-radius: 8px;
+  background: var(--panel); font-size: 1.3rem; font-weight: 600;
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}

@@ -1,0 +1,31 @@
+[package]
+name = "cpemu-web"
+version = "0.0.0"
+description = "Browser (WebAssembly) wrapper for the CPeMulator CP/M emulator."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+# A cdylib is what wasm-bindgen post-processes into the browser module; the rlib
+# lets `cargo test` build the crate natively too.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+cpemu = { path = "../cpemu" }
+# Pinned exactly: the wasm-bindgen CLI that post-processes the .wasm must be the
+# same version (web/build.sh checks).
+wasm-bindgen = "=0.2.130"
+# Sends a Rust panic's message to the browser console instead of a bare
+# "unreachable executed".
+console_error_panic_hook = "=0.1.7"
+# Reads uploaded .zip archives. Only deflate (with the pure-Rust zlib-rs, so it
+# builds for wasm) and the legacy PKZIP 1.x methods (Shrink, Reduce, Implode),
+# which DOS-era CP/M archives still use: Zork's and MBASIC's are imploded.
+zip = { version = "=9.6.1", default-features = false, features = ["deflate-flate2", "deflate-flate2-zlib-rs", "legacy-zip"] }
