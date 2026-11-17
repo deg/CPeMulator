@@ -97,6 +97,7 @@ dependency, and its tests boot CP/M, type `DIR`, upload a program and run it.
 | `diskImage()` / `diskChanges()` | The image to save, and a counter that says whether it changed. |
 | `files()` / `readFile(name)` | The file list, and one file's contents. |
 | `warmBoot()` | Like `^C` at the prompt. |
+| `inProgram()` | Whether a program is running (so an upload or reset would end it). |
 
 It is a separate crate because the glue that `#[wasm_bindgen]` generates uses
 `unsafe`, which the `cpemu` crate forbids. `wasm-bindgen` is pinned to an exact
@@ -109,7 +110,13 @@ BDOS keeps an in-memory map of which disk blocks are in use, built when it first
 touches a drive. If the host adds a file behind its back, the next file CP/M writes
 can land on the new file's blocks. A warm boot (what `^C` at the prompt does)
 reloads the CCP and BDOS, and the BDOS rebuilds that map from the directory. The cost
-is that an upload ends any program that is running.
+is that an upload ends any program that is running, losing whatever it hasn't saved.
+So the page asks first, but only when a program is running: `Session::in_program`
+(the wrapper's `inProgram()`) is true from the moment the CCP jumps to `0100h` to
+start a program until the CCP makes its next BDOS call, which it does at once to print
+the prompt. (Every BDOS call leaves its caller's address on the stack, which says
+whether the CCP or a program is asking.) At the `A>` prompt nothing can be lost, so
+the page doesn't ask there. Reset asks the same way.
 
 ## The page: `web/www`
 

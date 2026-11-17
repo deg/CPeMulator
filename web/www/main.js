@@ -13,6 +13,8 @@ const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
 const MAX_FRAME_MS = 100; // after a stall or a hidden tab, don't sprint to catch up
 const MAX_SLICE_MS = 12; // "Max" speed: run this long per frame, leaving time to draw
+const ENDS_PROGRAM =
+  "This restarts CP/M, which ends the program that is running. Anything it hasn't saved will be lost.";
 
 // ---------------------------------------------------------------------------
 // Status line
@@ -340,6 +342,9 @@ async function putFiles(fileList) {
     }
     return;
   }
+  // Putting files on the disk warm-boots CP/M (so it sees them), which ends a
+  // running program. At the A> prompt nothing is lost; otherwise ask.
+  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Upload anyway?")) return;
   const done = [];
   const failed = [];
   for (const f of files) {
@@ -420,6 +425,7 @@ onClick("d-fresh", () => {
 // Machine
 
 onClick("m-reset", () => {
+  if (emu.inProgram() && !confirm(ENDS_PROGRAM + " Reset anyway?")) return;
   swapEmulator(Emulator.fromImage(emu.diskImage()), false);
   note("Reset: CP/M restarted; drive A: kept its files.");
 });

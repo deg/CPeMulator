@@ -105,6 +105,14 @@ impl Emulator {
             .unwrap_or_default()
     }
 
+    /// Whether a program is running, rather than CP/M's `A>` prompt. Ask
+    /// before an upload or reset, which would end it and lose what it hasn't
+    /// saved.
+    #[wasm_bindgen(js_name = inProgram)]
+    pub fn in_program(&self) -> bool {
+        self.session.in_program()
+    }
+
     /// Warm-boot CP/M (like `^C` at the prompt), abandoning any running program.
     #[wasm_bindgen(js_name = warmBoot)]
     pub fn warm_boot(&mut self) {

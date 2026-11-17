@@ -31,7 +31,7 @@
 //! covers it; the `cpemu-web` crate is only a thin JavaScript wrapper around it.
 
 use crate::bios::{Console, CpmBios, cold_boot_bios, work_area_bytes};
-use crate::config::MachineConfig;
+use crate::config::{CCP_SIZE, MachineConfig, TPA_BASE};
 use crate::disk::{Disk, DiskError, terminate_text_file};
 use crate::executor::{Executor, RunExit};
 use crate::keys::{KeyXlate, map_key};
@@ -156,10 +156,17 @@ pub enum SessionError {
     Disk(DiskError),
 }
 
+/// Programs call BDOS through the `JP` at this fixed address in page zero.
+const BDOS_ENTRY: u16 = 0x0005;
+
 /// A booted CP/M machine with a buffered console, run in slices by its host.
 pub struct Session {
     exec: Executor<CpmBios<BufferConsole>>,
     conin: u16,
+    /// Where the CCP lives, to tell its BDOS calls from a program's.
+    ccp: std::ops::Range<u16>,
+    /// Whether a program (not the CCP) is running. See [`Session::in_program`].
+    program: bool,
 }
 
 impl Session {
@@ -185,6 +192,8 @@ impl Session {
         Ok(Self {
             exec: cold_boot_bios(config, bios),
             conin: config.bios_vector(3),
+            ccp: config.ccp_base..config.ccp_base + CCP_SIZE,
+            program: false,
         })
     }
 
@@ -210,6 +219,7 @@ impl Session {
             if self.is_idle() {
                 return RunState::Idle;
             }
+            self.track_program();
             match self.exec.step() {
                 None => {}
                 Some(RunExit::Halted) => return RunState::Halted,
@@ -218,6 +228,32 @@ impl Session {
             }
         }
         RunState::Running
+    }
+
+    /// Whether a program is running, rather than CP/M's own command processor:
+    /// true from the moment the CCP starts a program until the CCP is back in
+    /// charge. A host asks before doing something that would end the program
+    /// (a warm boot), because whatever it hasn't saved would be lost. At the
+    /// `A>` prompt nothing is lost, so there is no need to ask.
+    pub fn in_program(&self) -> bool {
+        self.program
+    }
+
+    /// Update [`in_program`](Session::in_program) before each step, from two
+    /// signals that cost one comparison each when they don't fire: the CCP
+    /// starts every program by jumping to the start of the TPA (`0100h`), and
+    /// every BDOS call (a `CALL 0005h`) leaves its caller's address on the
+    /// stack, which says whether the CCP or a program is asking. A program
+    /// that returns to the CCP is caught by the CCP's next BDOS call, which it
+    /// makes at once to print the prompt.
+    fn track_program(&mut self) {
+        let pc = self.exec.cpu.regs.pc;
+        if pc == TPA_BASE {
+            self.program = true;
+        } else if pc == BDOS_ENTRY {
+            let caller = self.exec.machine.mem.read16(self.exec.cpu.regs.sp);
+            self.program = !self.ccp.contains(&caller);
+        }
     }
 
     /// Whether CP/M is parked in `CONIN` with no key queued.
@@ -256,6 +292,7 @@ impl Session {
     /// Any running program is abandoned. Takes effect on the next `run`.
     pub fn warm_boot(&mut self) {
         self.exec.cpu.regs.pc = MachineConfig::virtual_default().bios_vector(1);
+        self.program = false;
     }
 }
 
@@ -342,6 +379,41 @@ mod tests {
         let d = s.disk(0).unwrap();
         assert_eq!(d.read_file("HI.COM").unwrap()[..2], [0x0E, 0x09]);
         assert!(d.list_files().contains(&"X.COM".to_string()));
+    }
+
+    #[test]
+    fn knows_when_a_program_is_running() {
+        let mut s = bare_session();
+        run_to_idle(&mut s);
+        assert!(!s.in_program(), "at the prompt");
+        // A built-in command runs inside the CCP: still not a program.
+        s.type_bytes(b"dir\r");
+        run_to_idle(&mut s);
+        assert!(!s.in_program(), "after DIR");
+        // A program waiting for input (a BDOS line read from the TPA).
+        let ask = vec![
+            0x0E, 0x0A, // LD C,10 (read console buffer)
+            0x11, 0x80, 0x00, // LD DE,0x0080
+            0xCD, 0x05, 0x00, // CALL 5
+            0xC9, // RET (back into the CCP, no warm boot)
+        ];
+        s.put_file(0, "ASK.COM", ask).unwrap();
+        run_to_idle(&mut s);
+        assert!(!s.in_program(), "after the upload's warm boot");
+        s.type_bytes(b"ask\r");
+        run_to_idle(&mut s);
+        assert!(s.in_program(), "while ASK waits for a line");
+        // It returns straight into the CCP, which takes over at once.
+        s.type_bytes(b"x\r");
+        let out = run_to_idle(&mut s);
+        assert!(out.ends_with("A>"), "no prompt in {out:?}");
+        assert!(!s.in_program(), "back at the prompt");
+        // An upload ends the program, so the session is back at the prompt.
+        s.type_bytes(b"ask\r");
+        run_to_idle(&mut s);
+        assert!(s.in_program());
+        s.put_file(0, "X.TXT", b"x".to_vec()).unwrap();
+        assert!(!s.in_program());
     }
 
     #[test]
