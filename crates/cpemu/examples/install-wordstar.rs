@@ -20,6 +20,7 @@
 
 use cpemu::bios::{Console, cold_boot};
 use cpemu::config::MachineConfig;
+use cpemu::cpm22::{BDOS, CCP};
 use cpemu::disk::{Disk, DiskFormat};
 use cpemu::executor::RunExit;
 use std::collections::VecDeque;
@@ -89,9 +90,7 @@ fn main() -> ExitCode {
     }
 
     // Boot a scratch disk holding WordStar + WINSTALL, then drive the install.
-    let ccp = include_bytes!("../../../third-party/cpm22/ccp.bin");
-    let bdos = include_bytes!("../../../third-party/cpm22/bdos.bin");
-    let mut disk = Disk::make_system_disk_with(DiskFormat::hard_8mb(), ccp, bdos);
+    let mut disk = Disk::make_system_disk_with(DiskFormat::hard_8mb(), CCP, BDOS);
     for f in WS_FILES {
         if let Ok(bytes) = std::fs::read(dir.join(f)) {
             disk.add_file(f, &bytes)

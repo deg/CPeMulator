@@ -7,8 +7,9 @@
 use cpemu::bios::{Console, CpmBios, cold_boot_bios, work_area_bytes};
 use cpemu::config::MachineConfig;
 use cpemu::console::TerminalConsole;
+use cpemu::cpm22::{BDOS, CCP};
 use cpemu::debugger::{Action, Debugger};
-use cpemu::disk::{self, Disk, DiskFormat};
+use cpemu::disk::{self, Disk, DiskFormat, terminate_text_file};
 use cpemu::machine::Machine;
 use cpemu::monitor::{Monitor, StopReason};
 use cpemu::terminal::TerminalMode;
@@ -16,10 +17,6 @@ use cpemu::throttle::Throttle;
 use cpemu_cpu::Cpu;
 use std::path::Path;
 use std::time::{Duration, Instant};
-
-/// The genuine CP/M 2.2 CCP and BDOS, assembled at our memory-map origins.
-const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
-const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
 
 const HELP: &str = "\
 CPeMulator — a from-scratch Z80 CP/M 2.2 emulator
@@ -91,26 +88,6 @@ fn parse_disk_spec(val: &str) -> (u8, String) {
 /// Drive number to its CP/M letter (0 -> 'A').
 fn drive_letter(drive: u8) -> char {
     (b'A' + drive) as char
-}
-
-/// Extensions that name CP/M *text* files, which end at a `^Z` marker. A raw host
-/// file lacks it, so `TYPE` (and SUBMIT, ED, …) read past the content into the
-/// disk's zero-padding as garbage. We append `^Z` to these on import; everything
-/// else — `.COM`, `.DAT`, and other binaries — must stay byte-exact, so the rule
-/// is a strict extension allow-list, not a guess.
-const TEXT_EXTENSIONS: &[&str] = &["SUB", "TXT", "DOC", "PRN", "ASC"];
-
-/// Append a `^Z` end-of-text marker to a host file if its extension names a CP/M
-/// text type and it isn't already terminated. (A file authored in-world with `ED`
-/// already has one.) Binaries are returned untouched.
-fn terminate_text_file(name: &str, mut bytes: Vec<u8>) -> Vec<u8> {
-    const EOF: u8 = 0x1A;
-    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_uppercase();
-    let is_text = name.contains('.') && TEXT_EXTENSIONS.contains(&ext.as_str());
-    if is_text && bytes.last() != Some(&EOF) {
-        bytes.push(EOF);
-    }
-    bytes
 }
 
 /// A named machine profile: a name and a constructor for its [`MachineConfig`].
@@ -802,24 +779,5 @@ mod tests {
         // A path that merely contains a colon but no single-letter prefix is a path.
         assert_eq!(parse_disk_spec("dir:name"), (0, "dir:name".to_string()));
         assert_eq!(parse_disk_spec("Z:bad.dsk"), (0, "Z:bad.dsk".to_string())); // Z is past P
-    }
-
-    #[test]
-    fn text_files_get_a_ctrl_z() {
-        // .SUB and .TXT (and other text types) without ^Z gain one, so SUBMIT/TYPE
-        // read the content and not the disk's zero-padding.
-        assert_eq!(
-            terminate_text_file("B.SUB", b"STAT\r\n".to_vec()),
-            b"STAT\r\n\x1a"
-        );
-        assert_eq!(terminate_text_file("READ.TXT", b"hi".to_vec()), b"hi\x1a");
-        // Already terminated -> left unchanged (no double ^Z).
-        assert_eq!(terminate_text_file("B.SUB", b"X\x1a".to_vec()), b"X\x1a");
-        // Match is case-insensitive on the extension.
-        assert_eq!(terminate_text_file("notes.txt", b"X".to_vec()), b"X\x1a");
-        // Binaries and unknown/dotless names are left byte-exact.
-        assert_eq!(terminate_text_file("FOO.COM", vec![1, 2, 3]), vec![1, 2, 3]);
-        assert_eq!(terminate_text_file("ZORK1.DAT", vec![5, 6]), vec![5, 6]);
-        assert_eq!(terminate_text_file("READSUB", vec![7]), vec![7]); // no dot
     }
 }

@@ -17,6 +17,10 @@ workspace = true
 
 [dependencies]
 cpemu-cpu = { workspace = true }
+
+# Native-only: the browser build (wasm32) has no terminal to put in raw mode,
+# and crossterm does not compile there. Gated with the `console` module.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Terminal control (raw mode) for the interactive console. Exact version per
 # the repo's no-ranges dependency policy.
 crossterm = "=0.29.0"

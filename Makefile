@@ -1,6 +1,6 @@
 # cpemu — developer tasks. Mirrors what CI enforces.
 
-.PHONY: all check fmt fmt-check lint test build clean wordstar setup fetch run play help
+.PHONY: all check fmt fmt-check lint test wasm-check build clean wordstar setup fetch run play help
 
 all: check
 
@@ -21,7 +21,7 @@ _DBG     := $(if $(filter debug,$(PROFILE)),CPEMU_DEBUG=1,)
 # ---------------------------------------------------------------------------
 
 # Full local gate — run before pushing. Matches the CI workflow.
-check: fmt-check lint test
+check: fmt-check lint test wasm-check
 
 # Auto-format the workspace.
 fmt:
@@ -38,6 +38,13 @@ lint:
 # Run the full test suite.
 test:
 	cargo test --workspace
+
+# The emulator library must keep compiling for the browser (wasm32). This
+# catches a native-only dependency (crossterm, threads, the filesystem) creeping
+# into code the browser build uses. Needs the target once:
+#   rustup target add wasm32-unknown-unknown
+wasm-check:
+	cargo check -p cpemu --lib --target wasm32-unknown-unknown
 
 # Build everything.
 build:
@@ -82,7 +89,7 @@ help:
 	@echo "  MHZ=2   slow the CPU      FAST=1   unthrottled      PROFILE=debug"
 	@echo "  ARGS=--arrows  (extra cpemu flags; see 'cargo run -- --help')"
 	@echo "  e.g.  make play MHZ=2      make run ARGS=--arrows"
-	@echo "Dev gate:  make check        (fmt-check + clippy + tests)"
+	@echo "Dev gate:  make check        (fmt-check + clippy + tests + wasm-check)"
 
 # Regenerate the genuine CP/M 2.2 CCP+BDOS binaries from the vendored source.
 # Requires Macro Assembler AS (`asl` + `p2bin`) on PATH — see

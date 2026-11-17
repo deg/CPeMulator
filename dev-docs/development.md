@@ -9,6 +9,9 @@ project follows.
 - **Rust**, edition 2024 (developed against Rust 1.95). A recent stable toolchain
   with the `rustfmt` and `clippy` components is all you need.
 - **GNU Make**, for the convenience targets in the `Makefile`.
+- The **`wasm32-unknown-unknown`** target (`rustup target add
+  wasm32-unknown-unknown`), because `make check` also confirms the emulator
+  library still compiles for the browser.
 
 No other system dependencies are required to build and test the current code. (A
 Z80 assembler — Macro Assembler AS — will be needed later, when the boot epic
@@ -28,7 +31,17 @@ which is:
 cargo fmt --all -- --check      # formatting must be clean
 cargo clippy --workspace --all-targets -- -D warnings   # no clippy warnings
 cargo test --workspace          # all tests pass
+cargo check -p cpemu --lib --target wasm32-unknown-unknown   # still builds for the browser
 ```
+
+The last step exists because the browser build (WebAssembly) shares the emulator
+library with the CLI. Native-only code (the host-terminal console with its
+`crossterm` raw mode and reader thread, and the speed throttle, which uses
+`std::time::Instant` and `thread::sleep`) is compiled only for native targets
+(`#[cfg(not(target_arch = "wasm32"))]`). The check fails if something native-only
+slips into the shared library. It only proves the library *compiles*: some `std`
+calls compile for wasm32 and then panic when run (the clock, sleeping, threads),
+so keep them out of shared code even when the check passes.
 
 Run it before every commit. If `make check` is green, CI will be green. The other
 targets are conveniences:
@@ -39,7 +52,8 @@ targets are conveniences:
 | `make lint` | Just the clippy step. |
 | `make test` | Just the tests. |
 | `make build` | `cargo build --workspace`. |
-| `make check` | The full gate (fmt-check + lint + test). The default target. |
+| `make wasm-check` | Just the browser-build compile check. |
+| `make check` | The full gate (fmt-check + lint + test + wasm-check). The default target. |
 
 ### Lints are errors
 
@@ -52,9 +66,9 @@ comment explaining why — do not loosen the workspace policy.
 ## Continuous integration
 
 Every push and pull request runs the `.github/workflows/ci.yml` workflow, which
-installs a stable toolchain and runs the same fmt/clippy/test gate as
-`make check`, with cargo caching. The repository is private; CI runs on GitHub
-Actions.
+installs a stable toolchain and the wasm32 target and runs the same
+fmt/clippy/test/wasm-check gate as `make check`, with cargo caching. CI runs on
+GitHub Actions.
 
 ## Issue tracking: beads (`bd`)
 

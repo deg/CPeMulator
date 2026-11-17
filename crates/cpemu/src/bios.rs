@@ -427,8 +427,7 @@ mod tests {
     use super::*;
     use crate::executor::RunExit;
 
-    const CCP: &[u8] = include_bytes!("../../../third-party/cpm22/ccp.bin");
-    const BDOS: &[u8] = include_bytes!("../../../third-party/cpm22/bdos.bin");
+    use crate::cpm22::{BDOS, CCP};
 
     /// Boot the genuine CP/M with a scripted command line and run until the
     /// guest asks for input that will not come (EOF) or a step budget is spent.
