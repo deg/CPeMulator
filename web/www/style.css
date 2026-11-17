@@ -1,0 +1,100 @@
+/* CPeMulator web page. One layout strategy throughout: flexbox rows that wrap.
+   The terminal is a fixed 80x24; on a screen narrower than it, its box scrolls
+   sideways instead of shrinking the text. */
+
+:root {
+  --bg: #f4f3ef;
+  --fg: #1d1d1b;
+  --dim: #5f5e5a;
+  --panel: #e7e5df;
+  --button: #ffffff;
+  --button-border: #b9b6ad;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --danger: #a33a2a;
+  --screen: #000000;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1a;
+    --fg: #e8e6e1;
+    --dim: #a19f98;
+    --panel: #262624;
+    --button: #33322f;
+    --button-border: #4a4945;
+    --accent: #5fb38a;
+    --accent-fg: #10140f;
+    --danger: #e0806f;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 62rem; margin: 0 auto; padding: 1rem 16px 2rem; }
+h1 { font-size: 1.3rem; margin: 0 0 .2rem; }
+.sub { margin: 0 0 .9rem; color: var(--dim); }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+a { color: var(--accent); }
+
+/* Groups are set apart by a wider gap than the buttons inside them. (Divider
+   lines between groups were tried; they dangle when a narrow screen wraps a
+   group onto its own line.) */
+.toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1.6rem; margin-bottom: .6rem; }
+.group { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+button, select {
+  font: inherit;
+  font-size: .9rem;
+  color: var(--fg);
+  background: var(--button);
+  border: 1px solid var(--button-border);
+  border-radius: 5px;
+  padding: .3rem .7rem;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button[aria-pressed="true"], button[aria-expanded="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button.danger { color: var(--danger); }
+label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color: var(--dim); }
+
+.files {
+  background: var(--panel);
+  border-radius: 6px;
+  padding: .6rem .8rem;
+  margin-bottom: .6rem;
+}
+.files-head, .files-foot { margin: 0; font-size: .9rem; color: var(--dim); }
+.files ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .9rem;
+  list-style: none;
+  margin: .5rem 0;
+  padding: 0;
+}
+.files li button {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  padding: .15rem .45rem;
+}
+
+.term {
+  background: var(--screen);
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+}
+.term.dragging { outline: 3px dashed var(--accent); outline-offset: 2px; }
+.status { margin: .45rem 0 0; color: var(--dim); font-size: .88rem; min-height: 1.3em; }
+.status.error { color: var(--danger); }
+footer { margin-top: 1.5rem; color: var(--dim); font-size: .88rem; }
+footer p { margin: .4rem 0; }

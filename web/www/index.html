@@ -4,66 +4,73 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CPeMulator</title>
+<meta name="description" content="Genuine CP/M 2.2 on an emulated Z80, running in your browser.">
 <link rel="stylesheet" href="vendor/xterm/xterm.css">
-<style>
-  :root { --bg: #1b1b1b; --fg: #e6e6e6; --dim: #9a9a9a; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font-family: system-ui, sans-serif; }
-  main { max-width: 60rem; margin: 0 auto; padding: 1rem 16px; }
-  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 .25rem; }
-  p.sub { margin: 0 0 1rem; color: var(--dim); font-size: .9rem; }
-  #term { padding: 8px; background: #000; border-radius: 6px; overflow-x: auto; }
-  #status { margin-top: .5rem; color: var(--dim); font-size: .85rem; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
-  <h1>CPeMulator</h1>
-  <p class="sub">Genuine CP/M 2.2 on an emulated Z80, running in your browser. Click the screen and type.</p>
-  <div id="term"></div>
-  <div id="status">Loading…</div>
+  <header>
+    <h1>CPeMulator</h1>
+    <p class="sub">Genuine CP/M 2.2 on an emulated Z80, running in your browser.
+      Click the screen and type. Try <code>DIR</code>, <code>STAT</code>, or
+      <code>ASM DUMP</code>, <code>LOAD DUMP</code>, <code>DUMP DUMP.COM</code>.</p>
+  </header>
+
+  <!-- The control panel: one row of button groups that wraps on narrow screens. -->
+  <nav class="toolbar" aria-label="Emulator controls">
+    <div class="group" role="group" aria-label="Keys">
+      <button id="k-esc" title="Send Escape">Esc</button>
+      <button id="k-ctrl" aria-pressed="false"
+              title="The next key you type is sent as a control key (Ctrl, then W sends ^W). For the keys your browser keeps for itself.">Ctrl</button>
+      <button id="k-ctrlc" title="Send ^C (at the A> prompt: warm boot)">^C</button>
+    </div>
+    <div class="group" role="group" aria-label="Disk">
+      <button id="d-upload" title="Put files from your computer on drive A:, or replace the whole disk with a .dsk image">Upload…</button>
+      <button id="d-download" class="primary" title="Save drive A: as a .dsk file. That file is your real copy: browsers may clear what they store.">Download disk</button>
+      <button id="d-files" aria-expanded="false" aria-controls="files">Files</button>
+      <input id="d-input" type="file" multiple hidden>
+    </div>
+    <div class="group" role="group" aria-label="Machine">
+      <button id="m-reset" title="Restart CP/M. Drive A: keeps its files.">Reset</button>
+      <label>Speed
+        <select id="m-speed" title="Emulated CPU clock">
+          <option value="2">2 MHz</option>
+          <option value="4" selected>4 MHz</option>
+          <option value="8">8 MHz</option>
+          <option value="25">25 MHz</option>
+          <option value="max">Max</option>
+        </select>
+      </label>
+    </div>
+  </nav>
+
+  <section id="files" class="files" hidden>
+    <p class="files-head">Drive A: <span id="files-count"></span>. Click a file to download it.</p>
+    <ul id="files-list"></ul>
+    <p class="files-foot">
+      <button id="d-fresh" class="danger" title="Erase drive A: and start again with the bundled programs">Fresh disk…</button>
+    </p>
+  </section>
+
+  <div id="term" class="term"></div>
+  <p id="status" class="status" role="status">Loading…</p>
+
+  <footer>
+    <p><strong>Keep your work with Download disk.</strong> Drive A: is also saved
+      in this browser and comes back on your next visit, but browsers may clear
+      their storage on their own (Safari after a week without a visit; any browser
+      when space runs low or history is cleared), so the downloaded
+      <code>.dsk</code> file is your real copy. Upload it to bring it back.
+      Nothing is ever sent anywhere.</p>
+    <p>The programs on a fresh disk are Digital Research's own CP/M 2.2 utilities,
+      redistributable under DRI's successor's grant. Vintage software isn't hosted
+      here, but you can upload your own <code>.COM</code> and data files (unzip
+      archives first), or drag them onto the screen.
+      <a href="https://github.com/deg/CPeMulator#finding-more-software">Where to find CP/M software</a>.</p>
+    <p><a href="https://github.com/deg/CPeMulator">Source code and documentation</a></p>
+  </footer>
 </main>
-<script type="module">
-import { Terminal } from "./vendor/xterm/xterm.mjs";
-import init, { Emulator } from "./pkg/cpemu_web.js";
-
-const MHZ = 4;                 // emulated clock
-const MAX_FRAME_MS = 100;      // don't sprint to catch up after a hidden tab
-const status = document.getElementById("status");
-
-const term = new Terminal({ cols: 80, rows: 24, cursorBlink: true,
-                            fontFamily: "ui-monospace, Menlo, Consolas, monospace" });
-term.open(document.getElementById("term"));
-
-await init();
-const emu = new Emulator();
-const encoder = new TextEncoder();
-let idle = false;
-let last = performance.now();
-
-term.onData((text) => {
-  emu.typeBytes(encoder.encode(text));
-  if (idle) { idle = false; last = performance.now(); requestAnimationFrame(frame); }
-});
-
-function frame(now) {
-  const dt = Math.min(now - last, MAX_FRAME_MS);
-  last = now;
-  const state = emu.run(Math.max(1, Math.round(MHZ * 1000 * dt)));
-  const out = emu.takeOutput();
-  if (out.length) term.write(out);
-  if (state === "running") {
-    requestAnimationFrame(frame);
-  } else if (state === "idle") {
-    idle = true;           // resumed by the next keystroke
-  } else {
-    status.textContent = `Machine ${state}. Reload the page to restart.`;
-    return;
-  }
-  status.textContent = `${MHZ} MHz Z80 · ${idle ? "waiting for a key" : "running"}`;
-}
-requestAnimationFrame(frame);
-term.focus();
-</script>
+<script type="module" src="main.js"></script>
 </body>
 </html>
