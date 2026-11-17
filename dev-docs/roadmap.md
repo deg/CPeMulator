@@ -97,7 +97,7 @@ hidden cost. See
 Boot CP/M to the `A>` prompt, then run real software (MBASIC, Turbo Pascal, Zork,
 WordStar) as acceptance tests.
 
-### [~] Boot CP/M in the browser — `cpemu-y1b`
+### [x] Boot CP/M in the browser — `cpemu-y1b`
 The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
 [browser.md](browser.md).
 - [x] Keep native-only code out of the wasm build (`cpemu-o3h`)
@@ -115,8 +115,8 @@ The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
 - [x] HTTPS copies of the library's archives (`cpemu-y1b.8`)
 - [x] Clearer page: controls by purpose, distinct words, panels beside the screen (`cpemu-y1b.9`)
 - [x] A download that can't start says so, instead of failing silently (`cpemu-y1b.10`)
-- [~] Build, smoke-test and deploy to GitHub Pages from CI (`cpemu-7cx`):
-  workflow written; live once Pages is enabled and the branch is merged
+- [x] Build, smoke-test and deploy to GitHub Pages from CI (`cpemu-7cx`):
+  live at <https://cpemulator.degel.com/> since 2026-11-17
 
 Next, in Phase 2 (`cpemu-81c`): a browser debugger, a software launcher, deep
 links, an embeddable widget.

@@ -173,8 +173,8 @@ pieces are built and tested:
   reachable at any time with **Ctrl-\\**.
 - **In a web browser** — the same emulator compiled to WebAssembly, with an
   xterm.js terminal, a software library, adding files, and the disk kept in the browser
-  (see [Try it in your browser](#try-it-in-your-browser)). Built and tested; the
-  public site goes live with its first deploy to GitHub Pages.
+  (see [Try it in your browser](#try-it-in-your-browser)), live at
+  <https://cpemulator.degel.com/>.
 
 **Known limitations.** `zexall` — the stricter exerciser that also checks the
 undocumented flag bits — is one instruction group short: it needs the Z80's
