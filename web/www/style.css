@@ -278,6 +278,7 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
 .help ul { padding-left: 1.2rem; }
 .help ol { margin: .4rem 0; padding-left: 1.3rem; }
 .help li { margin: .3rem 0; }
+.help li > ul { margin: .3rem 0; }
 footer { margin-top: 1.2rem; color: var(--dim); font-size: .88rem; }
 footer p { margin: .4rem 0; }
 

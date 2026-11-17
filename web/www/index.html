@@ -135,8 +135,28 @@
       <ul>
         <li><strong>Built in:</strong> <code>DIR</code> lists files,
           <code>TYPE README.TXT</code> shows a text file, <code>ERA OLD.TXT</code>
-          erases one, <code>REN NEW.TXT=OLD.TXT</code> renames one.
-          <code>*</code> and <code>?</code> are wildcards: <code>DIR *.COM</code>.</li>
+          erases one, <code>REN NEW.TXT=OLD.TXT</code> renames one.</li>
+        <li><strong>Wildcards</strong> pick out several files at once. A file name has
+          two parts, a name of up to 8 characters and a type of up to 3
+          (<code>DUMP.ASM</code>), and each part is matched on its own:
+          <ul>
+            <li><code>?</code> matches any one character, including the blanks that
+              pad a shorter name: <code>DIR ???.COM</code> lists ASM, DDT and PIP,
+              and ED too.</li>
+            <li><code>*</code> matches the rest of its part: <code>DIR *.COM</code>
+              lists every program, <code>DIR D*.*</code> everything whose name starts
+              with D, <code>DIR *.*</code> everything.</li>
+            <li>Whatever follows a <code>*</code> in the same part is ignored:
+              <code>DIR D*P.*</code> is the same as <code>DIR D*.*</code>, so it
+              lists DDT.</li>
+            <li><code>DIR</code>, <code>ERA</code> and <code>STAT</code> take
+              wildcards (<code>STAT *.COM</code> also shows each file's size).
+              <code>TYPE</code> and <code>REN</code> need one exact name, and
+              answer a wildcard by repeating it with a <code>?</code>.</li>
+            <li><strong>Careful:</strong> <code>ERA *.TXT</code> erases every match at
+              once, without asking. Only <code>ERA *.*</code> asks
+              <code>ALL (Y/N)?</code> first.</li>
+          </ul></li>
         <li><strong>Programs</strong> are the <code>.COM</code> files: type the name
           without <code>.COM</code>. <code>STAT</code> shows free space,
           <code>PIP COPY.TXT=README.TXT</code> copies a file, <code>DDT</code> is
