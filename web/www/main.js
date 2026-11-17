@@ -490,15 +490,34 @@ fileInput.addEventListener("change", () => {
   fileInput.value = "";
 });
 
-const termBox = $("term");
-termBox.addEventListener("dragover", (e) => {
+// Files can be dropped anywhere on the page. While they're dragged over it, an
+// overlay covers the whole page, so it's clear the drop target is everywhere,
+// not some small zone. (dragenter and dragleave fire for every element
+// crossed, hence the depth count.)
+const overlay = $("drop-overlay");
+let dragDepth = 0;
+const draggingFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+document.addEventListener("dragenter", (e) => {
+  if (!draggingFiles(e)) return;
   e.preventDefault();
-  termBox.classList.add("dragging");
+  dragDepth += 1;
+  overlay.hidden = false;
 });
-termBox.addEventListener("dragleave", () => termBox.classList.remove("dragging"));
-termBox.addEventListener("drop", (e) => {
+document.addEventListener("dragover", (e) => {
+  if (!draggingFiles(e)) return;
   e.preventDefault();
-  termBox.classList.remove("dragging");
+  e.dataTransfer.dropEffect = "copy";
+});
+document.addEventListener("dragleave", (e) => {
+  if (!draggingFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) overlay.hidden = true;
+});
+document.addEventListener("drop", (e) => {
+  if (!draggingFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  overlay.hidden = true;
   putFiles(e.dataTransfer.files);
 });
 
@@ -550,15 +569,40 @@ function el(tag, props = {}, ...children) {
 }
 
 function startDownload(item) {
-  // A plain link: the archive sites send .zip files as downloads, so the page
-  // stays where it is. The HTTPS copy when there is one: a secure page's
-  // downloads from a plain-HTTP site prompt, or are blocked.
-  const a = el("a", { href: item.mirror ?? item.url, rel: "noopener" });
-  document.body.append(a);
-  a.click();
-  a.remove();
+  // From a hidden frame, not a link. A link click navigates the page itself:
+  // the archive sites send .zip files as downloads, so normally the page stays,
+  // but a download that fails (an error page instead of a .zip, say from a
+  // withdrawn capture) would carry the visitor away from CPeMulator. In a
+  // frame, an error page loads unseen. That also means the page can't tell a
+  // failed download from a good one, hence "download again" and the
+  // alternative source in each row. The HTTPS copy is used when there is one:
+  // a secure page's downloads from a plain-HTTP site prompt, or are blocked.
+  // The frame goes once the download has long since started (removing it
+  // doesn't cancel a download already handed to the browser).
+  const frame = el("iframe", { src: item.mirror ?? item.url, hidden: true, title: "download" });
+  document.body.append(frame);
+  setTimeout(() => frame.remove(), 5 * 60_000);
   downloaded.add(item.id);
   storeDownloaded();
+}
+
+// Where a program comes from, as links: its secure copy and its original site
+// when it has both, so a visitor whose download didn't arrive can try the other.
+function sources(item) {
+  const link = (url, text) => {
+    const a = el("a", { href: url, target: "_blank", rel: "noopener", textContent: text });
+    a.addEventListener("click", () => {
+      downloaded.add(item.id);
+      storeDownloaded();
+      setTimeout(renderLibrary, 0);
+    });
+    return a;
+  };
+  const host = (url) => new URL(url).hostname.replace(/^www\./, "");
+  const parts = item.mirror
+    ? [link(item.mirror, `secure copy (${host(item.mirror)})`), " · ", link(item.url, `original (${host(item.url)})`)]
+    : [link(item.url, host(item.url))];
+  return el("span", { className: "sources" }, "From: ", ...parts);
 }
 
 function renderLibrary() {
@@ -566,11 +610,18 @@ function renderLibrary() {
   const installed = (item) => onDisk.has(item.check);
   const count = library.items.filter(installed).length;
   const remaining = library.items.filter((i) => !installed(i));
-  const toGet = remaining.reduce((sum, i) => sum + i.size, 0);
-  $("lib-counts").textContent =
-    `${library.items.length} programs · ${count} installed` +
-    (remaining.length ? ` · ${sizeText(toGet)} to download` : "");
-  $("lib-all").hidden = remaining.length === 0;
+  const started = remaining.filter((i) => downloaded.has(i.id)).length;
+  const notStarted = remaining.filter((i) => !downloaded.has(i.id));
+  const toGet = notStarted.reduce((sum, i) => sum + i.size, 0);
+  $("lib-counts").textContent = [
+    `${library.items.length} programs`,
+    `${count} installed`,
+    started ? `${started} downloading: drop the files on the screen when they arrive` : "",
+    notStarted.length ? `${sizeText(toGet)} more to download` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  $("lib-all").hidden = notStarted.length === 0;
 
   const rows = [];
   for (const group of [...new Set(library.items.map((i) => i.group))]) {
@@ -588,11 +639,23 @@ function renderLibrary() {
       if (installed(item)) {
         status = el("span", { className: "installed", textContent: "Installed ✓" });
       } else if (downloaded.has(item.id)) {
-        status = el("button", {
-          className: "get downloaded",
-          textContent: "Downloaded",
-          title: "Drop the file on the screen to install it. Click to download it again.",
+        // The page can't see whether the file arrived, so this says what to do
+        // next rather than claiming it did, and offers to try again.
+        const again = el("button", {
+          className: "again",
+          textContent: "download again",
+          title: "If the file didn't arrive. The program's row also lists its original site.",
         });
+        again.addEventListener("click", () => {
+          startDownload(item);
+          note(`Downloading ${item.title} again. Then drop the file on the screen.`);
+        });
+        status = el(
+          "span",
+          { className: "started" },
+          el("span", { className: "hint", textContent: "Drop it on the screen" }),
+          again,
+        );
       } else {
         status = el("button", {
           className: "get primary",
@@ -620,7 +683,7 @@ function renderLibrary() {
       if (open) {
         // On a phone the "what it is" column is hidden, so the how-to says it too.
         const what = el("span", { className: "howto-what", textContent: `${item.summary}. ` });
-        rows.push(el("tr", { className: "howto" }, el("td", { colSpan: 4 }, what, item.note)));
+        rows.push(el("tr", { className: "howto" }, el("td", { colSpan: 4 }, what, item.note, sources(item))));
       }
     }
   }

@@ -130,7 +130,9 @@
           The page puts the right files from each archive on A: (leaving out
           scanned manuals and the like, as the desktop version does) and installs
           WordStar for this screen. Each program then shows <strong>Installed</strong>,
-          and its row's name opens a note on how to use it. The archives aren't
+          and its row's name opens a note on how to use it. If a file never
+          arrives, use <strong>download again</strong>, or the program's original
+          site, listed when you open its row. The archives aren't
           hosted here: they come from the sites that preserve them, so mind each
           program's license. For more software, see
           <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
@@ -189,6 +191,9 @@
     <p>© 2026 David Goldfarb, <a href="mailto:deg@degel.com">deg@degel.com</a></p>
   </footer>
 </main>
+<div id="drop-overlay" class="drop-overlay" hidden aria-hidden="true">
+  <p>Drop to put the files on drive A:</p>
+</div>
 <script type="module" src="main.js"></script>
 </body>
 </html>

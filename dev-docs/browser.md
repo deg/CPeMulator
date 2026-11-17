@@ -203,23 +203,28 @@ not read their files. And the site hosts only software it may redistribute
 confirmed).
 
 So the **Library** panel is a table of the same programs (`web/www/library.json`):
-name (which opens a how-to), what it is, download size, and a status button that
-goes **Download** → **Downloaded** (clicked; remembered in `localStorage`, since a
-page can't see whether a cross-origin download finished) → **Installed** (the
-entry's `check` program is on the disk). **Download all** starts every remaining
-download, 2 s apart: the archive sites send `.zip` files as downloads, so plain
-link clicks leave the page where it is, and browsers ask once whether to allow
-several downloads. The visitor then drops all the files on the screen together.
+name (which opens a how-to and the program's sources), what it is, download size,
+and a status. The status starts as a **Download** button; after a click it says
+what to do next, "Drop it on the screen", with a **download again** link under it;
+and once the entry's `check` program is on the disk, **Installed**. Only Installed
+is a claim the page can back up: it can't see whether a download from another site
+arrived, so the started state never says "Downloaded". Started downloads are
+remembered in `localStorage`, and the header line counts them ("2 downloading: drop
+the files on the screen when they arrive"). **Download all** starts every remaining
+download, 2 s apart; browsers ask once whether to allow several downloads. The
+visitor then drops all the files together.
 
-Downloads use HTTPS. retroarchive.org, where the desktop gets most of the library,
-has none, and a secure page's downloads from a plain-HTTP site make browsers ask
-the visitor to Keep each file, or block it. So each of those entries also has a
-`mirror`: the Wayback Machine's capture of the same URL (`…/web/<time>id_/<url>`,
-which returns the original bytes), each checked byte-identical by SHA-256 against
-the desktop's downloads when it was added. The Wayback Machine limits request
-rates, which is one reason for the 2 s gap. The smoke test checks that each mirror
-is a capture of its entry's own URL and that every download is HTTPS. On a phone the
-table drops its description and size columns so the buttons stay in view.
+Downloads start from a hidden `<iframe>`, not a link click. A link click navigates
+the page itself; the archive sites send `.zip` files as downloads, so normally the
+page stays, but an error page instead of a `.zip` (a withdrawn capture, say) would
+carry the visitor away from CPeMulator. In a frame, the error page loads unseen.
+That is also why each row's how-to lists both sources, the secure copy and the
+original site: a visitor whose file never arrived can try the other.
+
+Files can be dropped anywhere on the page, not just on the terminal. While files are
+dragged over it, an overlay covers the whole page ("Drop to put the files on drive
+A:"), so the drop target is plainly everywhere rather than some small zone. On a
+phone the table drops its description and size columns so the buttons stay in view.
 
 A dropped archive is recognized by its file name (ignoring a browser's " (1)"),
 or failing that by its contents (`Emulator.zipPaths`): the entry's `check`
