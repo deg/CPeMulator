@@ -106,6 +106,10 @@ The emulator compiled to WebAssembly, at <https://cpemulator.degel.com/>. See
 - [x] Control panel: sticky Ctrl, Esc, ^C, reset, speed (`cpemu-y1b.1`)
 - [x] Disk saved in the browser; upload and download of files and `.dsk` images (`cpemu-qa2`)
 - [x] DRI's CP/M 2.2 utilities on a fresh disk, with provenance (`cpemu-kb9`)
+- [x] Ask before an upload or reset ends a running program (`cpemu-y1b.2`)
+- [x] Upload a `.zip`, including DOS-era PKZIP 1.x archives (`cpemu-y1b.3`)
+- [x] Help on the page: CP/M basics, adding software, the desktop version (`cpemu-y1b.4`)
+- [x] A fresh browser disk is 8 MB, like the desktop's (`cpemu-y1b.5`)
 - [~] Build, smoke-test and deploy to GitHub Pages from CI (`cpemu-7cx`):
   workflow written; live once Pages is enabled and the branch is merged
 
