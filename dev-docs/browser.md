@@ -209,7 +209,9 @@ what to do next, "Drop it on the screen", with a **download again** link under i
 and once the entry's `check` program is on the disk, **Installed**. Only Installed
 is a claim the page can back up: it can't see whether a download from another site
 arrived, so the started state never says "Downloaded". Started downloads are
-remembered in `localStorage`, and the header line counts them ("2 downloading: drop
+kept in memory only, not across a reload: the page can't see whether the file is
+still in the visitor's Downloads folder later, so a remembered "started" would go
+stale. The header line counts them ("2 downloading: drop
 the files on the screen when they arrive"). **Download all** starts every remaining
 download, 2 s apart; browsers ask once whether to allow several downloads. The
 visitor then drops all the files together.

@@ -182,23 +182,6 @@ function libraryEntry(fileName, bytes) {
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-// Which library archives this browser has started downloading, so their
-// buttons say so after a reload. (The page can't see whether a download
-// finished; "Installed" comes from the disk itself.)
-function loadDownloaded() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem("cpemulator.library.downloaded") ?? "[]"));
-  } catch {
-    return new Set();
-  }
-}
-function storeDownloaded() {
-  try {
-    localStorage.setItem("cpemulator.library.downloaded", JSON.stringify([...downloaded]));
-  } catch {
-    // Not remembered; harmless.
-  }
-}
 
 function loadSpeed() {
   try {
@@ -230,7 +213,12 @@ term.open($("term"));
 await init();
 db = await openDb();
 const library = await loadLibrary();
-const downloaded = loadDownloaded();
+// Which library archives have been started downloading on this page, so
+// their rows say what to do next. Kept in memory only: the page can't see
+// whether a download arrived, or whether the file is still in the visitor's
+// Downloads folder later, so after a reload a remembered "started" would be
+// stale. ("Installed" comes from the disk itself, and does persist.)
+const downloaded = new Set();
 saveState = db ? "disk saved in this browser" : "disk not saved (browser storage unavailable)";
 
 // Declared before anything can call showStatus(), which reads them.
@@ -583,7 +571,6 @@ function startDownload(item) {
   document.body.append(frame);
   setTimeout(() => frame.remove(), 5 * 60_000);
   downloaded.add(item.id);
-  storeDownloaded();
 }
 
 // Where a program comes from, as links: its secure copy and its original site
@@ -593,7 +580,6 @@ function sources(item) {
     const a = el("a", { href: url, target: "_blank", rel: "noopener", textContent: text });
     a.addEventListener("click", () => {
       downloaded.add(item.id);
-      storeDownloaded();
       setTimeout(renderLibrary, 0);
     });
     return a;
