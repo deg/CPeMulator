@@ -124,6 +124,10 @@ the page doesn't ask there. Reset asks the same way.
 - `index.html` and `style.css`: the header, the control panel (one wrapping row of
   button groups above the terminal), the file list, the terminal, the status line.
 - `main.js`: boot, the frame loop, the keys, the disk.
+- The help below the terminal (collapsible sections in `index.html`): getting
+  started with CP/M, adding software and keeping your work, what the desktop
+  version adds and how to get it, and what CPeMulator is. It is the user's
+  documentation for the site; keep it in step with the page and the README.
 - `vendor/xterm/`: xterm.js 6.0.0, the terminal widget, copied unchanged with its MIT
   license (`VERSION` records the source and hash). It is vendored rather than loaded
   from a CDN so the site depends on no third party at run time and works offline.

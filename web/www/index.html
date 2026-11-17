@@ -56,19 +56,102 @@
   <div id="term" class="term"></div>
   <p id="status" class="status" role="status">Loading…</p>
 
+  <!-- Help: collapsible sections in the normal flow below the terminal. -->
+  <section class="help" aria-label="Help">
+    <details>
+      <summary>Getting started with CP/M</summary>
+      <p>CP/M is the operating system most 8-bit business computers ran around
+        1980, before MS-DOS (which borrowed much of it). <code>A&gt;</code> means
+        it's ready for a command on drive A:. Type a command and press Enter;
+        upper or lower case are the same.</p>
+      <ul>
+        <li><strong>Built in:</strong> <code>DIR</code> lists files,
+          <code>TYPE README.TXT</code> shows a text file, <code>ERA OLD.TXT</code>
+          erases one, <code>REN NEW.TXT=OLD.TXT</code> renames one.
+          <code>*</code> and <code>?</code> are wildcards: <code>DIR *.COM</code>.</li>
+        <li><strong>Programs</strong> are the <code>.COM</code> files: type the name
+          without <code>.COM</code>. <code>STAT</code> shows free space,
+          <code>PIP COPY.TXT=README.TXT</code> copies a file, <code>DDT</code> is
+          the debugger.</li>
+        <li><strong>The editor</strong> needs a file name: <code>ED HELLO.TXT</code>.
+          (Without one, ED just says <code>DISK OR DIRECTORY FULL</code>, a quirk
+          of the original.) At its <code>*</code> prompt, <code>I</code> starts
+          inserting text, <code>^Z</code> (Ctrl, then Z) stops, <code>B#T</code>
+          shows the whole file, and <code>E</code> saves and quits.</li>
+        <li><strong>A first program:</strong> <code>ASM DUMP</code> assembles
+          Digital Research's sample source, <code>LOAD DUMP</code> turns it into
+          <code>DUMP.COM</code>, and <code>DUMP DUMP.COM</code> runs it on itself.</li>
+        <li><strong>Keys:</strong> <code>^C</code> at the prompt restarts CP/M
+          (a "warm boot"); <code>^S</code> pauses scrolling output and any key
+          resumes it; Backspace erases. Some keys are kept by your browser
+          (Ctrl-W, Ctrl-T, Ctrl-N on Windows and Linux): click
+          <strong>Ctrl</strong> above the screen, then the letter.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>Adding software, and keeping your work</summary>
+      <ul>
+        <li><strong>Upload…</strong>, or drag files onto the screen, to put them on
+          A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
+          included. Uploading restarts CP/M; if a program is running, the page
+          asks first.</li>
+        <li>Classic CP/M software isn't hosted here, but much of it is preserved
+          online: see
+          <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
+          find CP/M software</a>. Mind each program's license.</li>
+        <li><strong>Download disk</strong> saves drive A: as a <code>.dsk</code>
+          file: that file is your real copy. The disk is also kept in this browser
+          between visits, but browsers clear their storage on their own (Safari
+          after a week without a visit; any browser when space runs low or history
+          is cleared). The status line says when you have changes you haven't
+          downloaded. Upload the <code>.dsk</code> to bring it back.</li>
+        <li><strong>Files</strong> lists the disk and downloads single files;
+          <strong>Fresh disk</strong> there starts over.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>Run it on your own computer</summary>
+      <p>This page is the same emulator, compiled to WebAssembly. The desktop
+        version runs in a terminal window and adds:</p>
+      <ul>
+        <li><strong>A debug monitor:</strong> press Ctrl-\ at any moment for
+          breakpoints, single-stepping, disassembly, and the Z80's registers and
+          memory.</li>
+        <li><strong>Real files:</strong> disks are <code>.dsk</code> files on your
+          computer, written back when you quit, with nothing a browser can clear.
+          The ones this page downloads work there.</li>
+        <li><strong>More drives:</strong> up to 16, A: to P:, and
+          host files loaded straight onto a disk from the command line.</li>
+        <li><strong>A ready-made library:</strong> <code>make setup</code> downloads
+          classic software (Zork, Turbo Pascal, WordStar set up for your terminal,
+          MBASIC, dBASE II, games) and <code>make play</code> boots with all of it.</li>
+        <li><strong>Your own keyboard:</strong> no keys taken by a browser, and
+          <code>--arrows</code> makes the arrow keys move the cursor in WordStar-style
+          editors.</li>
+        <li><strong>More speed and control:</strong> native code, an exact clock
+          (<code>--mhz=2</code> for fast action games), or as fast as your machine goes.</li>
+      </ul>
+      <p>It needs a Rust toolchain; the
+        <a href="https://github.com/deg/CPeMulator#quick-start">quick start</a> goes
+        from download to a running CP/M in four steps.</p>
+    </details>
+
+    <details>
+      <summary>About CPeMulator</summary>
+      <p>CPeMulator emulates a Zilog Z80 processor and a small machine around it,
+        then boots the genuine Digital Research CP/M 2.2, the same code that ran
+        on real hardware, rather than imitating it. The fresh disk holds DRI's own
+        utilities, which DRI's successor allows anyone to redistribute. Everything
+        runs in your browser; nothing you type or upload is sent anywhere.</p>
+      <p><a href="https://github.com/deg/CPeMulator">Source code and documentation</a>
+        on GitHub, under the MIT license.</p>
+    </details>
+  </section>
+
   <footer>
-    <p><strong>Keep your work with Download disk.</strong> Drive A: is also saved
-      in this browser and comes back on your next visit, but browsers may clear
-      their storage on their own (Safari after a week without a visit; any browser
-      when space runs low or history is cleared), so the downloaded
-      <code>.dsk</code> file is your real copy. Upload it to bring it back.
-      Nothing is ever sent anywhere.</p>
-    <p>The programs on a fresh disk are Digital Research's own CP/M 2.2 utilities,
-      redistributable under DRI's successor's grant. Vintage software isn't hosted
-      here, but you can upload your own <code>.COM</code> and data files, or a
-      <code>.zip</code> archive of them, or drag them onto the screen.
-      <a href="https://github.com/deg/CPeMulator#finding-more-software">Where to find CP/M software</a>.</p>
-    <p><a href="https://github.com/deg/CPeMulator">Source code and documentation</a></p>
+    <p>© 2026 David Goldfarb, <a href="mailto:deg@degel.com">deg@degel.com</a></p>
   </footer>
 </main>
 <script type="module" src="main.js"></script>
