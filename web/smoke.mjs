@@ -141,6 +141,11 @@ check("the web library matches the desktop's", () => {
   if (missing.length || extra.length) return `missing ${missing}; not in the desktop's: ${extra}`;
   return sameRules ? null : "exclude rules differ from EXTRAS + NOISE";
 });
+check("zipPaths lists an archive's files without unpacking it", () => {
+  const zip = readFileSync(new URL("../crates/web/tests/fixtures/sample.zip", import.meta.url));
+  const paths = Emulator.zipPaths(zip).join(",");
+  return paths === "GAME/HELLO.COM,readme.txt,bad name.txt,__MACOSX/GAME/._HELLO.COM" ? null : paths;
+});
 check("an archive's rules leave files out", () => {
   const zip = readFileSync(new URL("../crates/web/tests/fixtures/sample.zip", import.meta.url));
   const report = emu.putZip(zip, ["GAME/"], ["*.txt"]);

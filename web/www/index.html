@@ -55,14 +55,24 @@
     </p>
   </section>
 
-  <section id="library" class="files library" hidden>
-    <p class="files-head">The desktop version's software library, as links. Click
-      a program's archive to download it, then drop the <code>.zip</code> on the
-      screen (several at once is fine): the page puts the right files on A:, as
-      the desktop does. The archives stay where they are preserved; nothing here
-      is hosted, so mind each program's license. retroarchive.org has no HTTPS, so
-      your browser may ask you to confirm the download ("Keep").</p>
-    <div id="library-list"></div>
+  <section id="library" class="library" hidden aria-labelledby="lib-title">
+    <div class="lib-head">
+      <h2 id="lib-title">Library</h2>
+      <span id="lib-counts" class="lib-counts"></span>
+      <button id="lib-all" class="primary"
+              title="Start downloading every program not yet on your disk, from the archives that preserve them">Download all ↓</button>
+    </div>
+    <p class="lib-how">Download programs, then drop the files on the screen, all at
+      once if you like. <a href="#help-adding" id="lib-help">How it works</a></p>
+    <div class="lib-scroll">
+      <table class="lib-table">
+        <thead>
+          <tr><th scope="col">Program</th><th scope="col" class="what">What it is</th>
+            <th scope="col" class="size">Size</th><th scope="col" class="status"><span class="visually-hidden">Status</span></th></tr>
+        </thead>
+        <tbody id="lib-rows"></tbody>
+      </table>
+    </div>
   </section>
 
   <div id="term" class="term"></div>
@@ -101,19 +111,30 @@
       </ul>
     </details>
 
-    <details>
+    <details id="help-adding">
       <summary>Adding software, and keeping your work</summary>
       <ul>
         <li><strong>Upload…</strong>, or drag files onto the screen, to put them on
           A:. A <code>.zip</code> is unpacked onto the disk, old DOS-era archives
           included. Uploading restarts CP/M; if a program is running, the page
           asks first.</li>
-        <li><strong>Library</strong> lists the desktop version's software (Zork,
-          Turbo Pascal, WordStar, MBASIC, dBASE II, games and more), with a link to
-          each program's archive and a note on using it. Download the archives you
-          want and drop them on the screen together: the page puts the right files
-          on A:, and installs WordStar for this screen. The archives aren't hosted
-          here, so mind each program's license. For more, see
+        <li><strong>The Library</strong> has the desktop version's software: Zork,
+          Turbo Pascal, WordStar, MBASIC, dBASE II, compilers and games. To get it all:
+          <ol>
+            <li>Click <strong>Library</strong>, then <strong>Download all</strong>
+              (or <strong>Download</strong> on just the programs you want). Your
+              browser may ask once whether this site may download several files,
+              and to <strong>Keep</strong> each file from retroarchive.org, which has
+              no secure (HTTPS) address.</li>
+            <li>Open your Downloads folder, select all the new <code>.zip</code>
+              files, and drop them on the screen together.</li>
+          </ol>
+          The page puts the right files from each archive on A: (leaving out
+          scanned manuals and the like, as the desktop version does) and installs
+          WordStar for this screen. Each program then shows <strong>Installed</strong>,
+          and its row's name opens a note on how to use it. The archives aren't
+          hosted here: they come from the sites that preserve them, so mind each
+          program's license. For more software, see
           <a href="https://github.com/deg/CPeMulator#finding-more-software">where to
           find CP/M software</a>.</li>
         <li><strong>Download disk</strong> saves drive A: as a <code>.dsk</code>

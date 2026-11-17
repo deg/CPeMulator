@@ -155,14 +155,49 @@ async function loadLibrary() {
   return { exclude: [], items: [] };
 }
 
-// The library entry a dropped file is, if any: matched by the archive's file
-// name as its link downloads it, ignoring case and the " (1)" a browser adds
-// to a second copy.
-function libraryEntry(fileName) {
+// The library entry a dropped archive is, if any. First by its file name as
+// its link downloads it (ignoring case and the " (1)" a browser adds to a
+// second copy); failing that, by what it holds: the entry's identifying
+// program, and its folders if it takes only some. So a renamed download, or a
+// copy from another site, still gets its rules. Only an unambiguous match
+// counts; any other archive is unpacked whole.
+function libraryEntry(fileName, bytes) {
   const name = fileName.toLowerCase().replace(/ \(\d+\)(?=\.zip$)/, "");
-  return library.items.find(
+  const byName = library.items.find(
     (item) => decodeURIComponent(item.url.split("/").pop()).toLowerCase() === name,
   );
+  if (byName) return byName;
+  let paths;
+  try {
+    paths = Emulator.zipPaths(bytes).map((p) => p.toLowerCase());
+  } catch {
+    return undefined;
+  }
+  const names = new Set(paths.map((p) => p.split("/").pop()));
+  const matches = library.items.filter(
+    (item) =>
+      names.has(item.check.toLowerCase()) &&
+      (!item.only || item.only.some((o) => paths.some((p) => p.includes(o.toLowerCase())))),
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+// Which library archives this browser has started downloading, so their
+// buttons say so after a reload. (The page can't see whether a download
+// finished; "Installed" comes from the disk itself.)
+function loadDownloaded() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("cpemulator.library.downloaded") ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+function storeDownloaded() {
+  try {
+    localStorage.setItem("cpemulator.library.downloaded", JSON.stringify([...downloaded]));
+  } catch {
+    // Not remembered; harmless.
+  }
 }
 
 function loadSpeed() {
@@ -195,6 +230,7 @@ term.open($("term"));
 await init();
 db = await openDb();
 const library = await loadLibrary();
+const downloaded = loadDownloaded();
 saveState = db ? "disk saved in this browser" : "disk not saved (browser storage unavailable)";
 
 // Declared before anything can call showStatus(), which reads them.
@@ -408,7 +444,7 @@ async function putFiles(fileList) {
         // Most CP/M software comes zipped: unpack it onto the disk. An archive
         // from the library gets the desktop's rules for it; any other, all of
         // its files.
-        const entry = libraryEntry(f.name);
+        const entry = libraryEntry(f.name, bytes);
         const only = entry?.only ?? [];
         const exclude = entry ? [...library.exclude, ...(entry.exclude ?? [])] : [];
         const report = emu.putZip(bytes, only, exclude);
@@ -497,49 +533,127 @@ onClick("d-files", () => {
   $("d-files").setAttribute("aria-expanded", String(!panel.hidden));
   if (!panel.hidden) renderFiles();
 });
+// The library table: a heading row per group, then per program its name
+// (which opens a how-to row), what it is, its download size, and a status:
+// Download, then Downloaded once clicked, then Installed once its program is on
+// the disk.
+const openRows = new Set(); // ids whose how-to is showing
+
+function sizeText(bytes) {
+  return bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
+}
+
+function el(tag, props = {}, ...children) {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...children);
+  return e;
+}
+
+function startDownload(item) {
+  // A plain link: the archive sites send .zip files as downloads, so the page
+  // stays where it is.
+  const a = el("a", { href: item.url, rel: "noopener" });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  downloaded.add(item.id);
+  storeDownloaded();
+}
+
 function renderLibrary() {
   const onDisk = new Set(emu.files());
-  const groups = [...new Set(library.items.map((i) => i.group))];
-  $("library-list").replaceChildren(
-    ...groups.flatMap((group) => {
-      const h = document.createElement("h3");
-      h.textContent = group;
-      const ul = document.createElement("ul");
-      for (const item of library.items.filter((i) => i.group === group)) {
-        const li = document.createElement("li");
-        const title = document.createElement("span");
-        title.className = "title";
-        title.textContent = item.title;
-        const link = document.createElement("a");
-        link.className = "get";
-        link.href = item.url;
-        link.target = "_blank";
-        link.rel = "noopener";
-        const file = decodeURIComponent(item.url.split("/").pop());
-        link.textContent = `${file} ↗ ${new URL(item.url).hostname.replace(/^www\./, "")}`;
-        const parts = [title, link];
-        if (onDisk.has(item.check)) {
-          const mark = document.createElement("span");
-          mark.className = "on-disk";
-          mark.textContent = "on your disk";
-          parts.push(mark);
-        }
-        const note = document.createElement("span");
-        note.className = "note";
-        note.textContent = item.note;
-        li.append(...parts, note);
-        ul.append(li);
+  const installed = (item) => onDisk.has(item.check);
+  const count = library.items.filter(installed).length;
+  const remaining = library.items.filter((i) => !installed(i));
+  const toGet = remaining.reduce((sum, i) => sum + i.size, 0);
+  $("lib-counts").textContent =
+    `${library.items.length} programs · ${count} installed` +
+    (remaining.length ? ` · ${sizeText(toGet)} to download` : "");
+  $("lib-all").hidden = remaining.length === 0;
+
+  const rows = [];
+  for (const group of [...new Set(library.items.map((i) => i.group))]) {
+    rows.push(el("tr", { className: "group" }, el("th", { colSpan: 4, scope: "colgroup", textContent: group })));
+    for (const item of library.items.filter((i) => i.group === group)) {
+      const open = openRows.has(item.id);
+      const expand = el("button", { className: "expand", textContent: item.title, title: "How to use it" });
+      expand.setAttribute("aria-expanded", String(open));
+      expand.addEventListener("click", () => {
+        if (open) openRows.delete(item.id);
+        else openRows.add(item.id);
+        renderLibrary();
+      });
+      let status;
+      if (installed(item)) {
+        status = el("span", { className: "installed", textContent: "Installed ✓" });
+      } else if (downloaded.has(item.id)) {
+        status = el("button", {
+          className: "get downloaded",
+          textContent: "Downloaded",
+          title: "Drop the file on the screen to install it. Click to download it again.",
+        });
+      } else {
+        status = el("button", {
+          className: "get primary",
+          textContent: "Download ↓",
+          title: `Download ${decodeURIComponent(item.url.split("/").pop())} from ${new URL(item.url).hostname}`,
+        });
       }
-      return [h, ul];
-    }),
-  );
+      if (status.tagName === "BUTTON") {
+        status.addEventListener("click", () => {
+          startDownload(item);
+          note(`Downloading ${item.title}. Then drop the file on the screen.`);
+          renderLibrary();
+        });
+      }
+      rows.push(
+        el(
+          "tr",
+          { className: "item" },
+          el("td", { className: "name" }, expand),
+          el("td", { className: "what", textContent: item.summary }),
+          el("td", { className: "size", textContent: sizeText(item.size) }),
+          el("td", { className: "status" }, status),
+        ),
+      );
+      if (open) {
+        // On a phone the "what it is" column is hidden, so the how-to says it too.
+        const what = el("span", { className: "howto-what", textContent: `${item.summary}. ` });
+        rows.push(el("tr", { className: "howto" }, el("td", { colSpan: 4 }, what, item.note)));
+      }
+    }
+  }
+  $("lib-rows").replaceChildren(...rows);
 }
+
 onClick("d-library", () => {
   const panel = $("library");
   panel.hidden = !panel.hidden;
   $("d-library").setAttribute("aria-expanded", String(!panel.hidden));
   if (!panel.hidden) renderLibrary();
 });
+
+// Download every program not yet on the disk, a moment apart (browsers treat a
+// burst of downloads as suspect, and ask once whether to allow several).
+$("lib-all").addEventListener("click", () => {
+  const onDisk = new Set(emu.files());
+  const items = library.items.filter((i) => !onDisk.has(i.check));
+  items.forEach((item, k) => setTimeout(() => startDownload(item), k * 700));
+  setTimeout(renderLibrary, items.length * 700);
+  note(
+    `Downloading ${items.length} archives. Your browser may ask to allow several downloads, ` +
+      "and to Keep files from retroarchive.org. Then select them all in your Downloads folder " +
+      "and drop them on the screen together.",
+  );
+});
+
+$("lib-help").addEventListener("click", (e) => {
+  e.preventDefault();
+  const help = $("help-adding");
+  help.open = true;
+  help.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 onClick("d-fresh", () => {
   if (!confirm("Erase drive A: and start again with only the bundled programs? Download it first to keep your files.")) return;
   swapEmulator(new Emulator(), true);

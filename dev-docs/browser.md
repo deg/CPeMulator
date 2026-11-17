@@ -98,6 +98,7 @@ dependency, and its tests boot CP/M, type `DIR`, upload a program and run it.
 | `files()` / `readFile(name)` | The file list, and one file's contents. |
 | `warmBoot()` | Like `^C` at the prompt. |
 | `inProgram()` | Whether a program is running (so an upload or reset would end it). |
+| `Emulator.zipPaths(bytes)` | The paths in a `.zip`, without unpacking it, so the page can tell which library program an archive holds. |
 | `putZip(bytes, only, exclude)` | Put a `.zip`'s files on A: (folders flattened), applying a library entry's rules (empty arrays keep everything); reports which went on, which couldn't and why, and how many the rules left out. |
 
 It is a separate crate because the glue that `#[wasm_bindgen]` generates uses
@@ -201,10 +202,23 @@ not read their files. And the site hosts only software it may redistribute
 (bead `cpemu-vg7` adds hosted entries once a program's redistribution terms are
 confirmed).
 
-So the **Library** panel lists the same programs as links, with a usage note each
-(`web/www/library.json`). The visitor downloads an archive and drops it on the
-screen; the page recognizes it by file name (ignoring a browser's " (1)") and
-applies the desktop's rules for it, so the disk ends up as `make setup` builds it:
+So the **Library** panel is a table of the same programs (`web/www/library.json`):
+name (which opens a how-to), what it is, download size, and a status button that
+goes **Download** → **Downloaded** (clicked; remembered in `localStorage`, since a
+page can't see whether a cross-origin download finished) → **Installed** (the
+entry's `check` program is on the disk). **Download all** starts every remaining
+download, 0.7 s apart: the archive sites send `.zip` files as downloads, so plain
+link clicks leave the page where it is. Browsers ask once whether to allow several
+downloads, and Chrome asks to Keep each file from retroarchive.org, which has no
+HTTPS. The visitor then drops all the files on the screen together. On a phone the
+table drops its description and size columns so the buttons stay in view.
+
+A dropped archive is recognized by its file name (ignoring a browser's " (1)"),
+or failing that by its contents (`Emulator.zipPaths`): the entry's `check`
+program, plus its `only` folders if it has them, must be in the archive, and only
+an unambiguous match counts. So a renamed download or a copy from another site
+still gets its rules. The page then applies the desktop's rules for it, so the
+disk ends up as `make setup` builds it:
 
 - `exclude`: the desktop's `EXTRAS` and `NOISE` lists (scanned manuals, source,
   docs, install fragments), copied exactly, plus per-archive additions;

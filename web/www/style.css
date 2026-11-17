@@ -87,15 +87,73 @@ label { display: flex; align-items: center; gap: .35rem; font-size: .9rem; color
   padding: .15rem .45rem;
 }
 
-/* The library panel: the Files panel's box, holding groups of entries. */
-.library h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase;
-              color: var(--dim); margin: .8rem 0 .3rem; }
-.library ul { flex-direction: column; flex-wrap: nowrap; gap: .45rem; }
-.library li { display: flex; flex-wrap: wrap; gap: .1rem .6rem; align-items: baseline; }
-.library .title { font-weight: 600; }
-.library .on-disk { font-size: .8rem; color: var(--accent); }
-.library .note { flex-basis: 100%; color: var(--dim); font-size: .88rem; }
-.library a.get { font-size: .85rem; }
+/* The library panel: a header line, then a table (one row per program, a
+   group heading row before each group, and a hidden how-to row under each
+   program). The table scrolls sideways on a narrow screen, like the terminal. */
+.library {
+  background: var(--panel);
+  border-radius: 6px;
+  padding: .7rem .9rem .5rem;
+  margin-bottom: .6rem;
+}
+.lib-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1rem; }
+.lib-head h2 { font-size: 1.05rem; margin: 0; }
+.lib-counts { color: var(--dim); font-size: .88rem; }
+.lib-head #lib-all { margin-left: auto; }
+.lib-how { margin: .35rem 0 .4rem; font-size: .88rem; color: var(--dim); }
+/* position: relative makes this the containing block of the table's
+   visually-hidden header label, which would otherwise escape the scroll box
+   and widen the whole page. */
+.lib-scroll { overflow-x: auto; position: relative; }
+.lib-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.lib-table th, .lib-table td { padding: .34rem .5rem; text-align: left; vertical-align: middle; }
+.lib-table thead th {
+  font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--dim); border-bottom: 1px solid var(--button-border);
+}
+.lib-table tr.group th {
+  padding-top: .85rem; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.lib-table tr.item td { border-top: 1px solid var(--button-border); }
+.lib-table tr.group + tr.item td { border-top: none; }
+.lib-table .size {
+  text-align: right; white-space: nowrap; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.lib-table .status { text-align: right; white-space: nowrap; width: 1%; }
+.lib-table .what { color: var(--dim); }
+.lib-table button.expand {
+  background: none; border: none; padding: 0; font-weight: 600; color: var(--fg);
+  text-align: left; white-space: nowrap;
+}
+.lib-table button.expand::before {
+  content: "▸"; display: inline-block; width: 1.1em; color: var(--dim);
+}
+.lib-table button.expand[aria-expanded="true"]::before { content: "▾"; }
+.lib-table tr.howto td { color: var(--dim); font-size: .86rem; padding: 0 .5rem .6rem 1.6rem; }
+.lib-table .howto-what { display: none; }
+.lib-table .get, .lib-table .installed { min-width: 8.5rem; }
+.lib-table .get.downloaded { background: transparent; }
+.lib-table .installed {
+  display: inline-block; text-align: center; font-weight: 600; color: var(--accent);
+  padding: .3rem .7rem;
+}
+/* On a phone: drop the description and size columns, let names wrap and
+   buttons shrink, so the status buttons stay in view; a row's how-to (opened
+   from its name) then also says what the program is. Kept after the rules it
+   overrides, since it has the same specificity. */
+@media (max-width: 560px) {
+  .lib-table .what, .lib-table .size { display: none; }
+  .lib-table button.expand { white-space: normal; }
+  .lib-table .get, .lib-table .installed { min-width: 0; }
+  .lib-table .howto-what { display: inline; }
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.help ol { margin: .4rem 0; padding-left: 1.3rem; }
 
 .term {
   background: var(--screen);

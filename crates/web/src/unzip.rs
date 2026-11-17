@@ -61,6 +61,17 @@ pub fn members(zip: &[u8]) -> Result<Vec<Member>, String> {
     Ok(out)
 }
 
+/// The paths of the files in `zip`, without reading their data: enough to tell
+/// which program an archive holds. Folder entries are left out.
+pub fn paths(zip: &[u8]) -> Result<Vec<String>, String> {
+    let archive = ZipArchive::new(Cursor::new(zip)).map_err(|_| "not a zip archive")?;
+    Ok((0..archive.len())
+        .filter_map(|i| archive.name_for_index(i).and_then(Result::ok))
+        .map(|name| name.into_owned())
+        .filter(|path| !path.ends_with('/'))
+        .collect())
+}
+
 /// Which of an archive's files belong on the disk: the rules the desktop's
 /// `scripts/fetch-software.sh` applies to each archive in its library, which
 /// the web page's software library repeats (`web/www/library.json`).
@@ -133,6 +144,21 @@ mod tests {
         assert!(f.keeps("bdsc160/REINSTALL.COM", "REINSTALL.COM"));
         // No rules: everything is kept.
         assert!(Filter::default().keeps("any/thing.pdf", "thing.pdf"));
+    }
+
+    #[test]
+    fn paths_lists_files_without_folders() {
+        let p = paths(SAMPLE).unwrap();
+        assert_eq!(
+            p,
+            [
+                "GAME/HELLO.COM",
+                "readme.txt",
+                "bad name.txt",
+                "__MACOSX/GAME/._HELLO.COM"
+            ]
+        );
+        assert!(paths(b"not a zip").is_err());
     }
 
     #[test]

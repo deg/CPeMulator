@@ -106,6 +106,14 @@ impl Emulator {
         Ok(report)
     }
 
+    /// The paths of the files in a `.zip` (folders included in each path), so
+    /// the page can tell which library program an archive holds before
+    /// unpacking it.
+    #[wasm_bindgen(js_name = zipPaths)]
+    pub fn zip_paths(zip: &[u8]) -> Result<Vec<String>, JsError> {
+        unzip::paths(zip).map_err(|e| JsError::new(&e))
+    }
+
     /// Drive A:'s whole sector image, to save in the browser or download.
     #[wasm_bindgen(js_name = diskImage)]
     pub fn disk_image(&self) -> Vec<u8> {

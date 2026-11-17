@@ -1,5 +1,5 @@
 {
- "about": "The desktop version's software library (scripts/fetch-software.sh), as links: each archive stays where it is preserved, and the page applies the same rules when a visitor drops one in. Keep the two in step; web/smoke.mjs checks.",
+ "about": "The desktop version's software library (scripts/fetch-software.sh), as links: each archive stays where it is preserved, and the page applies the same rules when a visitor drops one in. 'check' is the program that identifies the archive (and shows it installed); 'size' is the archive's download size in bytes. Keep this in step with fetch-software.sh; web/smoke.mjs checks.",
  "exclude": [
   "*.pdf",
   "*.jpg",
@@ -77,6 +77,8 @@
    "id": "zork",
    "group": "Games",
    "title": "Zork I, II and III",
+   "summary": "Infocom's text adventures",
+   "size": 214286,
    "url": "http://www.retroarchive.org/cpm/games/zork123_80.zip",
    "check": "ZORK1.COM",
    "note": "Infocom's text adventures: run ZORK1, ZORK2 or ZORK3. Type plain English (OPEN MAILBOX, GO NORTH); SAVE and RESTORE work; QUIT leaves."
@@ -85,6 +87,8 @@
    "id": "manygame",
    "group": "Games",
    "title": "A collection of games",
+   "summary": "Colossal Cave, Enchanter, Othello and more",
+   "size": 754243,
    "url": "http://www.retroarchive.org/cpm/games/manygame.zip",
    "check": "ADVENTUR.COM",
    "note": "Colossal Cave (ADVENTUR), Infocom's Enchanter (ENCHANTE), OTHELLO, a Pac-Man chase (PACMAN95), and BASIC games such as Star Trek (MBASIC STAR.BAS, which needs MBASIC). Answer Y/N questions in capitals."
@@ -93,38 +97,48 @@
    "id": "ladder",
    "group": "Games",
    "title": "Ladder",
+   "summary": "Arcade climbing game",
+   "size": 21382,
    "url": "http://www.retroarchive.org/cpm/misc/LADDER.ZIP",
    "check": "LADDER.COM",
-   "note": "Arcade climbing game; set Speed to 2 MHz. A up, Z down, comma left, period right, Space jumps."
+   "note": "Set Speed to 2 MHz first. A up, Z down, comma left, period right, Space jumps."
   },
   {
    "id": "catchum",
    "group": "Games",
    "title": "Catchum",
+   "summary": "A Pac-Man clone",
+   "size": 16833,
    "url": "http://www.retroarchive.org/cpm/misc/CATCHUM.ZIP",
    "check": "CATCHUM.COM",
-   "note": "A Pac-Man clone. 1 for one player; A/Z up and down, comma/period left and right. Try 2 MHz."
+   "note": "1 for one player; A/Z up and down, comma/period left and right. Try 2 MHz."
   },
   {
    "id": "sargon",
    "group": "Games",
    "title": "Sargon chess",
+   "summary": "Chess",
+   "size": 8231,
    "url": "http://www.retroarchive.org/cpm/games/sargon.zip",
    "check": "SARGON.COM",
-   "note": "Answer the setup questions with a capital Y or N, then enter moves like E2E4."
+   "note": "Run SARGON. Answer the setup questions with a capital Y or N, then enter moves like E2E4."
   },
   {
    "id": "nemesis",
    "group": "Games",
    "title": "Nemesis",
+   "summary": "A dungeon adventure",
+   "size": 6250730,
    "url": "http://www.retroarchive.org/cpm/games/nemesis.zip",
    "check": "NEMESIS.COM",
-   "note": "A dungeon adventure: run NEMESIS."
+   "note": "Run NEMESIS."
   },
   {
    "id": "mbasic",
    "group": "Languages",
    "title": "Microsoft BASIC (MBASIC 5.29)",
+   "summary": "Microsoft BASIC interpreter",
+   "size": 18920,
    "url": "http://www.retroarchive.org/cpm/lang/mbasic.zip",
    "check": "MBASIC.COM",
    "note": "Type numbered lines, then RUN. Ctrl-C stops a program; SYSTEM returns to A>. Also runs the BASIC games: MBASIC STAR.BAS."
@@ -133,6 +147,8 @@
    "id": "turbo",
    "group": "Languages",
    "title": "Turbo Pascal 3.01a",
+   "summary": "Pascal compiler and editor",
+   "size": 61638,
    "url": "http://www.retroarchive.org/cpm/lang/TP_301A.ZIP",
    "check": "TURBO.COM",
    "note": "Run TURBO and answer N to \"include error messages\"; then the menu: Edit, Compile, Run."
@@ -141,6 +157,8 @@
    "id": "bdsc",
    "group": "Languages",
    "title": "BDS C 1.60",
+   "summary": "C compiler",
+   "size": 1585654,
    "url": "https://www.bdsoft.com/dist/bdsc-all.zip",
    "check": "CC.COM",
    "only": [
@@ -150,12 +168,14 @@
     "*.c",
     "*.csm"
    ],
-   "note": "A C compiler, put in the public domain by its author: CC HELLO.C, then CLINK HELLO, then HELLO. Start with #include <STDIO.H>."
+   "note": "Put in the public domain by its author. CC HELLO.C compiles, CLINK HELLO links, then run HELLO. Start with #include <STDIO.H>."
   },
   {
    "id": "lisp",
    "group": "Languages",
    "title": "muLISP-80 and LISP/80",
+   "summary": "Two Lisp interpreters",
+   "size": 44126,
    "url": "http://www.retroarchive.org/cpm/lang/lisp80.zip",
    "check": "MULISP.COM",
    "note": "Run MULISP and type Lisp in CAPITALS at the $ prompt: (PLUS 2 3). (RDS DOCTOR LIB) loads Eliza. Ctrl-C exits."
@@ -164,6 +184,8 @@
    "id": "fortran",
    "group": "Languages",
    "title": "Microsoft FORTRAN-80 3.43",
+   "summary": "FORTRAN compiler",
+   "size": 63871,
    "url": "http://www.retroarchive.org/cpm/lang/MSFORTRAN343.ZIP",
    "check": "F80.COM",
    "note": "F80 compiles a .FOR file and LINK links it into a .COM."
@@ -172,14 +194,18 @@
    "id": "cbasic",
    "group": "Languages",
    "title": "CBASIC (CB-80)",
+   "summary": "Digital Research's BASIC compiler",
+   "size": 108771,
    "url": "http://www.retroarchive.org/cpm/lang/CB80.ZIP",
    "check": "CB80.COM",
-   "note": "Digital Research's compiled BASIC: CB80 compiles and LK80 links."
+   "note": "CB80 compiles and LK80 links."
   },
   {
    "id": "wordstar",
    "group": "Productivity",
    "title": "WordStar 4",
+   "summary": "Word processor",
+   "size": 336955,
    "url": "https://archive.org/download/wordstar-release-4-for-cpm/WordStar%20Release%204%20for%20CPM%20%28Loose%20Files%29.zip",
    "check": "WS.COM",
    "only": [
@@ -195,12 +221,14 @@
     "contains": "ANSI Standard",
     "what": "installing WordStar for this screen"
    },
-   "note": "The word processor, installed for this screen automatically when you drop it in (it takes a few seconds). Run WS; ^KX saves and exits, ^KQ quits without saving."
+   "note": "Installed for this screen automatically when you drop it in (it takes a few seconds). Run WS; ^KX saves and exits, ^KQ quits without saving."
   },
   {
    "id": "dbase",
    "group": "Productivity",
    "title": "dBASE II",
+   "summary": "Database",
+   "size": 111917,
    "url": "http://www.retroarchive.org/cpm/dbase/dbaseii.zip",
    "check": "DBASE.COM",
    "note": "Press Return at the date question; try ? \"HELLO\" at the . prompt; leave with QUIT (not Ctrl-C)."
@@ -209,17 +237,21 @@
    "id": "multiplan",
    "group": "Productivity",
    "title": "Microsoft Multiplan",
+   "summary": "Spreadsheet",
+   "size": 106073,
    "url": "http://www.retroarchive.org/cpm/business/MULTPLAN.ZIP",
    "check": "MP.COM",
-   "note": "A spreadsheet: run MP. Commands are the menu along the bottom; Quit from there."
+   "note": "Run MP. Its commands are the menu along the bottom; Quit from there."
   },
   {
    "id": "supercalc",
    "group": "Productivity",
    "title": "SuperCalc",
+   "summary": "Spreadsheet",
+   "size": 71664,
    "url": "http://www.retroarchive.org/cpm/business/Suprcalc.zip",
    "check": "SC.COM",
-   "note": "A spreadsheet: run SC. Not set up for a terminal, so it may not display correctly yet."
+   "note": "Run SC. It isn't set up for a terminal, so it may not display correctly yet."
   }
  ]
 }
